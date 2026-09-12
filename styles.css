@@ -1,6 +1,8 @@
 :root{--bg:#0b0614;--panel:#170b26;--txt:#efe9ff;--acc:#b26bff;--acc2:#7df9ff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui;overflow:hidden}
+#err{position:fixed;top:0;left:0;right:0;z-index:60;background:#7a1020;color:#fff;
+  font-size:12px;padding:6px 10px;max-height:40vh;overflow:auto;white-space:pre-wrap}
 header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel)}
 header h1{font-size:15px;margin:0;flex:1}header b{color:var(--acc)}
 .badge{padding:2px 8px;border-radius:10px;background:#241238;color:var(--acc2);font-size:11px;white-space:nowrap}
@@ -30,6 +32,7 @@ fieldset{grid-column:1/-1;border:1px solid #33204d;border-radius:10px;display:gr
 button.primary{width:100%;margin:6px 0;padding:12px;border:0;border-radius:10px;background:var(--acc);color:#12061f;font-weight:700}
 button.ghost{background:none;border:1px solid var(--acc);color:var(--acc);border-radius:8px;padding:4px 10px}
 .disclaimer{grid-column:1/-1;font-size:11px;opacity:.75;border:1px dashed #33204d;border-radius:8px;padding:8px}
+.dlist{font-size:12px;display:flex;flex-direction:column;gap:4px}
 #ggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 #ggrid img,#ggrid video{width:100%;border-radius:8px;aspect-ratio:4/3;object-fit:cover}
 #jlist{display:flex;flex-direction:column;gap:6px}
