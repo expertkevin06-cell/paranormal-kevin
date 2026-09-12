@@ -4,6 +4,15 @@ const tc=document.createElement('canvas'), tg=tc.getContext('2d');
 export const fmtT = v => (S.unit==='F'? v*9/5+32 : v).toFixed(1)+'°'+S.unit;
 const cover=(W,H,sw,sh)=>{ const r=Math.max(W/sw,H/sh), w=sw*r, h=sh*r; return {x:(W-w)/2,y:(H-h)/2,w,h}; };
 
+/* v3.3 : rectangle thermique selon cadration choisie (cover/contain/stretch) */
+function thermalRect(f, base, A){
+  const fit=S.align.fit||'cover';
+  if(fit==='contain'){ const s=Math.min(base.w/f.w, base.h/f.h), w=f.w*s, h=f.h*s;
+    return {x:base.x+(base.w-w)/2+A.ox, y:base.y+(base.h-h)/2+A.oy, w:w*A.sx, h:h*A.sy}; }
+  if(fit==='stretch') return {x:base.x+A.ox, y:base.y+A.oy, w:base.w*A.sx, h:base.h*A.sy};
+  const s=Math.max(base.w/f.w, base.h/f.h), w=f.w*s, h=f.h*s;
+  return {x:base.x+(base.w-w)/2+A.ox, y:base.y+(base.h-h)/2+A.oy, w:w*A.sx, h:h*A.sy}; }
+
 export function thermalImageData(f, rgbSrc, msxAmount){
   const {w,h}=f; if(tc.width!==w){tc.width=w;tc.height=h;}
   const img=tg.createImageData(w,h), lut=LUTS[S.palette];
@@ -91,11 +100,17 @@ function flashOverlay(ctx,W,H){ if(Date.now()<runtime.flash){
     const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);
     g.addColorStop(0,'rgba(255,0,0,0)'); g.addColorStop(1,'rgba(255,0,0,.45)');
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H); } }
+/* v3.3 : filigrane quand aucune source réelle */
+function demoWatermark(ctx,W,H){ if(runtime.thSrc && runtime.thSrc.indexOf('DÉMO')===0){
+    ctx.save(); ctx.font='bold 13px system-ui'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(255,255,255,.75)';
+    ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)', W/2, H-14); ctx.restore(); } }
 
 export function renderScene(ctx,W,H,L,o={}){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
   ctx.save(); ctx.translate(W/2,H/2); ctx.scale(view.z,view.z); ctx.translate(-W/2+view.x,-H/2+view.y);
-  const hasRGB=!!L.rgb, hasTH=!!L.th, hasD=!!L.depth;
+  const hasRGB=!!L.rgb && (L.rgb.videoWidth||L.rgb.width||0)>0 && (L.rgb.readyState===undefined||L.rgb.readyState>=2);
+  const hasTH=!!L.th, hasD=!!L.depth;
   const A=S.align; let span=null, tr=null;
   const rgbBase = hasRGB ? cover(W,H,L.rgb.videoWidth||L.rgb.width, L.rgb.videoHeight||L.rgb.height) : null;
   if(hasRGB){ ctx.save();
@@ -104,8 +119,8 @@ export function renderScene(ctx,W,H,L,o={}){
   if(hasTH){
     const msx=(S.fusionMode==='msx'&&hasRGB)? S.expert.detailTransfer : 0;
     span=thermalImageData(L.th, hasRGB?L.rgb:null, msx);
-    tr = rgbBase ? {x:rgbBase.x+A.ox,y:rgbBase.y+A.oy,w:rgbBase.w*A.sx,h:rgbBase.h*A.sy}
-                 : cover(W,H,L.th.w,L.th.h);
+    const base = rgbBase || {x:0,y:0,w:W,h:H};
+    tr = thermalRect(L.th, base, A);
     const drawT=(alpha,clip)=>{ ctx.save(); if(clip)clip(); ctx.globalAlpha=alpha;
       if(A.mirror){ ctx.translate(tr.x+tr.w,tr.y); ctx.scale(-1,1); ctx.drawImage(tc,0,0,tr.w,tr.h); }
       else ctx.drawImage(tc,tr.x,tr.y,tr.w,tr.h); ctx.restore(); };
@@ -130,7 +145,7 @@ export function renderScene(ctx,W,H,L,o={}){
   if(o.live&&S.expert.grid) grid(ctx,W,H);
   if(o.live&&S.expert.horizon) horizon(ctx,W,H);
   hud(ctx,W,H,span,L);
-  if(o.live){ paraGauge(ctx,W,H); flashOverlay(ctx,W,H); }
+  if(o.live){ paraGauge(ctx,W,H); flashOverlay(ctx,W,H); demoWatermark(ctx,W,H); }
 }
 function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h), lut=LUTS.ghost;
   const img=ctx.createImageData(depth.w,depth.h), c=document.createElement('canvas');
@@ -139,13 +154,13 @@ function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h), lut=LUTS.
     img.data[i*4]=lut[k*3]; img.data[i*4+1]=lut[k*3+1]; img.data[i*4+2]=lut[k*3+2]; img.data[i*4+3]=255; }
   c.getContext('2d').putImageData(img,0,0); ctx.drawImage(c,r.x,r.y,r.w,r.h); }
 function hud(ctx,W,H,span,L){ if(!S.hud) return;
-  ctx.save(); ctx.font='12px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)'; ctx.fillRect(8,8,252,86);
+  ctx.save(); ctx.font='12px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)'; ctx.fillRect(8,8,268,86);
   ctx.fillStyle='#efe9ff'; const T=runtime.temps;
-  ctx.fillText(`MODE ${S.mode.toUpperCase()}  ${runtime.net}`,16,26);
+  ctx.fillText(`MODE ${S.mode.toUpperCase()} · SRC ${runtime.thSrc||'—'} · ${runtime.net}`,16,26);
   if(T) ctx.fillText(`Max ${fmtT(T.mx)}  Min ${fmtT(T.mn)}  Moy ${fmtT(T.avg)}`,16,44);
   ctx.fillText(`Émiss ${S.emissivity}  Palette ${S.palette}  ×${view.z.toFixed(1)}`,16,62);
   ctx.fillText(new Date().toLocaleString('fr-FR'),16,80); ctx.restore();
-  if(S.hist) drawHist(ctx,8,H-96,150,72);
+  if(S.hist) drawHist(ctx,70,H-96,150,72);
   if(S.legend&&span){ const lut=LUTS[S.palette], x=W-34, y0=120, hh=H-260;
     for(let i=0;i<hh;i++){ const k=255-((i/hh)*255|0);
       ctx.fillStyle=`rgb(${lut[k*3]},${lut[k*3+1]},${lut[k*3+2]})`; ctx.fillRect(x,y0+i,18,1); }
