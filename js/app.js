@@ -16,8 +16,17 @@ const $=s=>document.querySelector(s);
 const cv=$('#cv'), ctx=cv.getContext('2d',{alpha:false}), rgbv=$('#rgbv');
 const spec=$('#spec'), specCtx=spec.getContext('2d');
 const th=new Thermal(), depth=new DepthEngine(), evp=new EVP();
-let recorder=null, recT0=0, recTimer=null, tick=0, prevGray=null;
+let recorder=null, recT0=0, recTimer=null, tick=0, prevGray=null, lastRenderOK=0;
 const rgbReady=()=>rgbv.videoWidth>0;
+
+/* ---------- AUTOVÉRIFICATION : toute erreur devient visible ---------- */
+runtime.boot=[]; runtime.lastRenderErr='';
+function banner(msg){ const el=$('#err'); if(el){ el.hidden=false; el.textContent='⚠ '+msg; } }
+addEventListener('error',e=>banner('Erreur JS : '+(e.message||'?')+' — '+(e.filename||'').split('/').pop()+':'+e.lineno));
+addEventListener('unhandledrejection',e=>banner('Promesse rejetée : '+(e.reason?.message||e.reason||'?')));
+const boot=(name,fn)=>Promise.resolve().then(fn)
+  .then(()=>{ runtime.boot.push('✅ '+name); })
+  .catch(e=>{ const m=(e&&e.message)||String(e); runtime.boot.push('❌ '+name+' : '+m); banner('Démarrage → '+name+' : '+m); });
 
 const MODES={ cam:{rgb:1,th:0,depth:0}, camth:{rgb:1,th:1,depth:0},
   camthlidar:{rgb:1,th:1,depth:1}, lidar:{rgb:0,th:0,depth:1}, th:{rgb:0,th:1,depth:0} };
@@ -31,7 +40,8 @@ async function startRGB(){ try{
   const st=await navigator.mediaDevices.getUserMedia({audio:false,
     video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
   rgbv.srcObject=st; rgbv.hidden=false; await rgbv.play(); runtime.rgb=rgbv; buildCamControls();
- }catch(e){ toast('Caméra refusée : cadenas URL → autorisations. '+e.message); } }
+ }catch(e){ if(!th.running) th.startDemo(); if(S.mode==='cam') setMode('camth');
+  throw e; } }
 async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0]; if(!tr) return;
   const cap=tr.getCapabilities?.()||{}; const box=$('#camCtl'); box.innerHTML='';
   const mk=(label,key,min,max,step)=>{ const l=document.createElement('label');
@@ -48,7 +58,6 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-/* v3.5 : résolution = rect × densité RÉELLE (plafond 4), stockée dans runtime.px */
 function fit(){ const r=cv.getBoundingClientRect();
   if(r.width<10||r.height<10) return;
   const d=Math.min(4, devicePixelRatio||1);
@@ -81,12 +90,15 @@ function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
     runtime.fx.peak =S.expert.peaking?peakingCanvas(g,160,120):null; }
   if(evp.on && !spec.hidden) specCtx.drawImage(evp.spec,0,0,spec.width,spec.height);
   if(tick%15===0) sampleAnomalies();
+  runtime.lastRenderErr='';
   try{
     renderScene(ctx,cv.width,cv.height,{
       rgb:(S.layers.rgb && rgbReady())?rgbv:null,
       th:S.layers.th?th.frame:null,
       depth:S.layers.depth?runtime.depth:null },{live:true});
-  }catch(e){}
+    lastRenderOK=tick;
+  }catch(e){ runtime.lastRenderErr='BOUCLE: '+e.message; banner('Rendu : '+e.message); }
+  if(tick-lastRenderOK>180) banner('Rendu bloqué depuis 3 s — tapez le badge SRC pour le diagnostic');
   if(runtime.boxes.length&&S.layers.rgb&&rgbReady()) drawBoxes();
   if(tick%30===0){
     runtime.thSrc = th.running ? (th.mode==='demo' ? 'DÉMO' : (th.info||th.mode).toUpperCase()) : '—';
@@ -160,7 +172,6 @@ initNet();
 onNet(n=>{ $('#net').textContent=n.label+(n.online?'':' — offline actif');
   if(n.online && S.net.sync) flushQueue().catch(()=>{});
   if(n.tier==='high' && S.net.prefetchHD && !S.depth.hd) depth.prefetchHD(); });
-initSensors(); initMotion();
 addEventListener('deviceorientation',e=>{ runtime.tilt={beta:e.beta||0,gamma:e.gamma||0}; });
 
 function bind(id,get,set){ const el=$('#'+id); if(!el) return; const t=el.type;
@@ -199,7 +210,7 @@ bind('colorUVC',()=>!!S.usb.colorUVC,v=>{ S.usb.colorUVC=v; if(v){ S.Tmin=10; S.
 ['iface','epIn','hdr','scale','offset'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=+v));
 bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
-$('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD(); toast('Modèle HD caché offline.'); };
+$('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD().then(()=>toast('Modèle HD caché offline.')); };
 
 $('#bSource').onclick=()=>$('#srcDlg').showModal();
 $('#sClose').onclick=()=>$('#srcDlg').close();
@@ -232,7 +243,9 @@ $('#bPhoto').onclick=async()=>{ if(runtime.processing) return; flash();
     await saveCanvas(out); toast('Photo enregistrée'); } };
 $('#bVideo').onclick=async()=>{ if(recorder){ recorder.stop(); recorder=null; clearInterval(recTimer);
     $('#rec').hidden=true; return; }
-  recorder=await startVideo(cv); recT0=Date.now(); $('#rec').hidden=false;
+  recorder=await startVideo(cv).catch(e=>{ toast('Vidéo impossible : '+e.message); return null; });
+  if(!recorder) return;
+  recT0=Date.now(); $('#rec').hidden=false;
   recTimer=setInterval(()=>{ const s=(Date.now()-recT0)/1000|0;
     $('#rect').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },500);
   toast('Enregistrement vidéo…'); };
@@ -242,7 +255,7 @@ $('#bEvp').onclick=async()=>{ if(evp.on){ evp.stop(); spec.hidden=true; $('#bEvp
     $('#sEvp').textContent='🎙 EVP'; toast('EVP actif : spectrogramme + détection de pics'); }
   catch(e){ toast('Micro refusé : '+e.message); } };
 $('#bJournal').onclick=async()=>{ $('#journal').classList.add('open');
-  const evs=await dbAll('events');
+  const evs=await dbAll('events').catch(()=>[]);
   const list=$('#jlist'); list.innerHTML='';
   for(const ev of evs.sort((a,b)=>b.ts-a.ts).slice(0,80)){
     const d=document.createElement('div'); d.className='jev';
@@ -253,9 +266,9 @@ $('#bJournal').onclick=async()=>{ $('#journal').classList.add('open');
     list.appendChild(d); } };
 $('#bJClose').onclick=()=>$('#journal').classList.remove('open');
 $('#bGallery').onclick=async()=>{ $('#gallery').classList.add('open');
-  const items=await listMedia('media'); $('#ggrid').innerHTML='';
-  const est=await navigator.storage.estimate();
-  $('#quota').textContent=`(${(est.usage/1e6|0)} Mo / ${(est.quota/1e6|0)} Mo)`;
+  const items=await listMedia('media').catch(()=>[]); $('#ggrid').innerHTML='';
+  navigator.storage?.estimate?.().then(est=>{
+    $('#quota').textContent=`(${(est.usage/1e6|0)} Mo / ${(est.quota/1e6|0)} Mo)`; }).catch(()=>{});
   for(const it of items.sort((a,b)=>b.ts-a.ts)){ const url=URL.createObjectURL(it.blob);
     const w=document.createElement('div');
     w.innerHTML=it.type==='photo'?`<img src="${url}">`:`<video src="${url}" muted loop playsinline></video>`;
@@ -264,15 +277,30 @@ $('#bGallery').onclick=async()=>{ $('#gallery').classList.add('open');
       else download(it.blob,'paranormal-'+it.id); };
     $('#ggrid').appendChild(w); } };
 $('#bGClose').onclick=()=>$('#gallery').classList.remove('open');
-$('#bAI').onclick=async()=>{ toast("Analyse d'investigation…"); const r=await makeReport(); alert(r.text); };
+$('#bAI').onclick=async()=>{ toast("Analyse d'investigation…");
+  const r=await makeReport().catch(e=>({text:'Erreur rapport : '+e.message})); alert(r.text); };
 $('#bSet').onclick=()=>$('#panel').classList.add('open');
 $('#bClose').onclick=()=>$('#panel').classList.remove('open');
+
+/* ---------- écran d'autodiagnostic (tapez le badge SRC) ---------- */
+$('#sSrc').onclick=()=>{ const l=$('#dlist');
+  const cam=rgbReady()?'✅ caméra active ('+rgbv.videoWidth+'×'+rgbv.videoHeight+')':'❌ caméra inactive';
+  const src='Source thermique : '+(th.running? (th.mode==='demo'?'démo':th.info) : 'aucune');
+  const sw=('serviceWorker' in navigator && navigator.serviceWorker.controller)?'✅ SW actif':'⚠ SW absent (rechargez)';
+  l.innerHTML=['<b>Boot :</b>']
+    .concat(runtime.boot.length?runtime.boot:['(aucune entrée)'])
+    .concat([cam, src, sw,
+      'Rendu : '+(runtime.lastRenderErr||'✅ ok'),
+      'Réseau : '+runtime.net,
+      'Canvas : '+cv.width+'×'+cv.height+' (px='+ (runtime.px||'?') +')',
+      'Erreur globale : '+(runtime.err||$('#err').textContent||'aucune')])
+    .map(x=>'<div>'+x+'</div>').join('');
+  $('#diag').classList.add('open'); };
+$('#bDClose').onclick=()=>$('#diag').classList.remove('open');
 
 if(navigator.geolocation) navigator.geolocation.watchPosition(p=>runtime.gps=p.coords,()=>{},{enableHighAccuracy:true});
 let ip; addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); ip=e; $('#btnInstall').hidden=false; });
 $('#btnInstall').onclick=()=>ip?.prompt();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
-navigator.storage?.persist?.();
 
 function flash(){ const f=document.createElement('div');
   f.style.cssText='position:fixed;inset:0;background:#fff;z-index:99;opacity:.9;transition:.3s';
@@ -283,11 +311,19 @@ let tt; function toast(m){ let el=$('#toast');
     document.body.appendChild(el); }
   el.textContent=m; el.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>el.style.display='none',3000); }
 
+/* ---------- démarrage blindé : le rendu tourne AVANT tout, puis autotests ---------- */
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode') && MODES[qp.get('mode')]) setMode(qp.get('mode'));
 else setMode(S.mode||'camthlidar');
 if(qp.get('journal')) setTimeout(()=>$('#bJournal').onclick(),800);
 if(qp.get('set')) setTimeout(()=>$('#panel').classList.add('open'),600);
-startRGB();
-if(!th.running) th.startDemo();
-loop();
+fit(); loop();                       /* rendu immédiat : jamais d'écran noir */
+(async function bootSequence(){
+  await boot('Service Worker',()=>('serviceWorker' in navigator)? navigator.serviceWorker.register('./sw.js') : null);
+  await boot('Stockage persistant',()=>navigator.storage?.persist?.());
+  await boot('Base locale',()=>dbAll('events'));
+  await boot('Capteurs mouvement/magnétomètre',()=>{ initSensors(); initMotion(); });
+  await boot('Caméra arrière',()=>startRGB());
+  await boot('Source thermique (démo si aucune)',()=>{ if(!th.running) th.startDemo(); });
+})();
+if(qp.get('diag')) setTimeout(()=>$('#sSrc').onclick(),800);
