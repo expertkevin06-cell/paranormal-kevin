@@ -5,7 +5,8 @@ export async function loadDetector(){ if(detector) return detector;
   await script('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
   await script('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
   detector=await cocoSsd.load({base:'mobilenet_v2'}); return detector; }
-export const detect = v => loadDetector().then(d=>d.detect(v,8,0.45));
+export const detect = v => loadDetector().then(d=>d.detect(v,8,0.45)
+  .then(rs=>rs.map(r=>({label:r.class, score:r.score, bbox:r.bbox}))));
 
 export class DepthEngine {
   constructor(){ this.connected=false; this.mode='none'; this.pipe=null; this.loading=false; this.last=null; this.fails=0; }
