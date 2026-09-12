@@ -33,7 +33,7 @@ async function startRGB(){ try{
   const st=await navigator.mediaDevices.getUserMedia({audio:false,
     video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
   rgbv.srcObject=st; rgbv.hidden=false; await rgbv.play(); runtime.rgb=rgbv; buildCamControls();
- }catch(e){ toast('Caméra refusée : vérifiez le cadenas URL → autorisations. '+e.message); } }
+ }catch(e){ toast('Caméra refusée : cadenas URL → autorisations. '+e.message); } }
 async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0]; if(!tr) return;
   const cap=tr.getCapabilities?.()||{}; const box=$('#camCtl'); box.innerHTML='';
   const mk=(label,key,min,max,step)=>{ const l=document.createElement('label');
@@ -50,10 +50,14 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-/* ---------- boucle rendu + anomalies (v3.1 : anti écran noir) ---------- */
+/* ---------- canvas : taille protégée (v3.2) ---------- */
 function fit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
-  cv.width=r.width*d; cv.height=r.height*d; }
+  if(r.width<10||r.height<10) return;              // évite un canvas dégénéré étiré
+  cv.width=Math.round(r.width*d); cv.height=Math.round(r.height*d); }
 addEventListener('resize',fit);
+addEventListener('orientationchange',()=>setTimeout(fit,150));
+
+/* ---------- boucle rendu + anomalies ---------- */
 function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
   const q=effQuality();
   if(S.layers.depth && depth.connected && rgbReady() && tick%Math.max(2,Math.round(30/q.dfps))===0)
@@ -71,10 +75,10 @@ function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
   if(tick%15===0) sampleAnomalies();
   try{
     renderScene(ctx,cv.width,cv.height,{
-      rgb:(S.layers.rgb && rgbReady())?rgbv:null,   // v3.1 : jamais de vidéo sans image
+      rgb:(S.layers.rgb && rgbReady())?rgbv:null,
       th:S.layers.th?th.frame:null,
       depth:S.layers.depth?runtime.depth:null },{live:true});
-  }catch(e){ /* le rendu ne doit jamais tuer la boucle */ }
+  }catch(e){ /* le rendu ne tue jamais la boucle */ }
   if(runtime.boxes.length&&S.layers.rgb&&rgbReady()) drawBoxes();
   if(tick%30===0){ $('#sPara').textContent='👁 PARA '+(runtime.para|0);
     $('#sTh').textContent= runtime.temps? `🌡 Δ${(runtime.temps.mx-runtime.temps.mn).toFixed(1)}°` : '🌡 —';
@@ -188,7 +192,7 @@ bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
 $('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD(); toast('Modèle HD caché offline.'); };
 
-/* ---------- source thermique (v3.1 : la démo revient si échec) ---------- */
+/* ---------- source thermique (la démo revient si échec) ---------- */
 $('#bSource').onclick=()=>$('#srcDlg').showModal();
 $('#sClose').onclick=()=>$('#srcDlg').close();
 $('#sUvc').onclick=async()=>{ $('#srcDlg').close();
@@ -274,11 +278,12 @@ let tt; function toast(m){ let el=$('#toast');
     document.body.appendChild(el); }
   el.textContent=m; el.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>el.style.display='none',3000); }
 
-/* ---------- démarrage ---------- */
+/* ---------- démarrage (raccourcis + accès réglages par ?set=1) ---------- */
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode') && MODES[qp.get('mode')]) setMode(qp.get('mode'));
 else setMode(S.mode||'camthlidar');
 if(qp.get('journal')) setTimeout(()=>$('#bJournal').onclick(),800);
+if(qp.get('set')) setTimeout(()=>$('#panel').classList.add('open'),600);
 startRGB();
 if(!th.running) th.startDemo();
 loop();
