@@ -48,18 +48,25 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-function fit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
+/* v3.5 : résolution = rect × densité RÉELLE (plafond 4), stockée dans runtime.px */
+function fit(){ const r=cv.getBoundingClientRect();
   if(r.width<10||r.height<10) return;
-  cv.width=Math.round(r.width*d); cv.height=Math.round(r.height*d); }
+  const d=Math.min(4, devicePixelRatio||1);
+  runtime.px=d;
+  const W=Math.round(r.width*d), H=Math.round(r.height*d);
+  if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; } }
+function selfFit(){ const r=cv.getBoundingClientRect();
+  if(r.width<10||r.height<10) return;
+  const d=Math.min(4, devicePixelRatio||1);
+  const W=Math.round(r.width*d), H=Math.round(r.height*d);
+  if(Math.abs(cv.width-W)>2||Math.abs(cv.height-H)>2){ runtime.px=d; cv.width=W; cv.height=H; } }
 addEventListener('resize',fit);
 addEventListener('orientationchange',()=>setTimeout(fit,150));
-/* v3.4 : auto-réparation si le canvas prend une taille dégénérée */
-function selfFit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
-  const W=Math.round(r.width*d), H=Math.round(r.height*d);
-  if(W>50&&H>50&&(Math.abs(cv.width-W)>4||Math.abs(cv.height-H)>4)){ cv.width=W; cv.height=H; } }
+if(window.visualViewport){ visualViewport.addEventListener('resize',()=>setTimeout(fit,80));
+  visualViewport.addEventListener('scroll',()=>setTimeout(fit,80)); }
 
 function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
-  if(tick%60===0) selfFit();
+  if(tick%30===0) selfFit();
   const q=effQuality();
   if(S.layers.depth && depth.connected && rgbReady() && tick%Math.max(2,Math.round(30/q.dfps))===0)
     depth.estimate(rgbv).then(d=>{ runtime.depth=d; nearFrac(d); }).catch(()=>{});
@@ -87,13 +94,13 @@ function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
     $('#sPara').textContent='👁 PARA '+(runtime.para|0);
     $('#sTh').textContent= runtime.temps? `🌡 Δ${(runtime.temps.mx-runtime.temps.mn).toFixed(1)}°` : '🌡 —';
     $('#sMag').textContent= Sens.mag? `🧲 ${Sens.mag.toFixed(0)} µT` : '🧲 n/d'; } }
-function drawBoxes(){ const sx=cv.width/rgbv.videoWidth, sy=cv.height/rgbv.videoHeight;
-  ctx.save(); ctx.lineWidth=2; ctx.font='bold 13px system-ui';
+function drawBoxes(){ const u=runtime.px||2, sx=cv.width/rgbv.videoWidth, sy=cv.height/rgbv.videoHeight;
+  ctx.save(); ctx.lineWidth=2*u; ctx.font='bold '+(13*u)+'px system-ui';
   for(const b of runtime.boxes){ const pres=b.label==='person';
     ctx.strokeStyle=pres?'#b26bff':'#7df9ff';
     ctx.strokeRect(b.bbox[0]*sx,b.bbox[1]*sy,b.bbox[2]*sx,b.bbox[3]*sy);
     ctx.fillStyle=ctx.strokeStyle;
-    ctx.fillText(pres?`PRÉSENCE ? ${(b.score*100)|0}%`:`${b.label} ${(b.score*100)|0}%`,b.bbox[0]*sx,b.bbox[1]*sy-6); }
+    ctx.fillText(pres?`PRÉSENCE ? ${(b.score*100)|0}%`:`${b.label} ${(b.score*100)|0}%`,b.bbox[0]*sx,b.bbox[1]*sy-6*u); }
   ctx.restore(); }
 
 function nearFrac(d){ let n=0; for(let i=0;i<d.data.length;i++) if(d.data[i]<0.25) n++;
@@ -187,9 +194,7 @@ bind('llmProvider',()=>S.llm.provider,v=>S.llm.provider=v); bind('llmKey',()=>S.
 bind('photoFormat',()=>S.photo.format,v=>S.photo.format=v);
 bind('videoFps',()=>S.video.fps,v=>S.video.fps=v); bind('videoBitrate',()=>S.video.bitrate,v=>S.video.bitrate=v);
 bind('mic',()=>S.video.mic,v=>S.video.mic=v);
-/* v3.4 : flux UVC déjà coloré + plage °C réaliste automatique */
-bind('colorUVC',()=>!!S.usb.colorUVC,v=>{ S.usb.colorUVC=v;
-  if(v){ S.Tmin=10; S.Tmax=60; } });
+bind('colorUVC',()=>!!S.usb.colorUVC,v=>{ S.usb.colorUVC=v; if(v){ S.Tmin=10; S.Tmax=60; } });
 ['vid','pid','magic','endian','fmt'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=v));
 ['iface','epIn','hdr','scale','offset'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=+v));
 bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
