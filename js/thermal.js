@@ -1,25 +1,40 @@
 import { S } from './state.js';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
 export class Thermal {
   constructor(){ this.mode='none'; this.frame=null; this.video=null; this.device=null;
     this.running=false; this.paused=false; this.info=''; this.fps=0; this._n=0; this._t0=performance.now(); }
+
+  /* Déconnecte/reconnecte du rendu sans fermer le périphérique USB */
   setPaused(p){ this.paused=p; }
+
   async stop(){ this.running=false; clearInterval(this._timer); this._timer=null;
     this.video?.srcObject?.getTracks().forEach(t=>t.stop()); this.video=null;
     if(this.device){ try{ await this.device.close(); }catch{} this.device=null; }
     this.mode='none'; this.frame=null; this.info=''; }
+
+  /* ---------- MODE 1 — UVC (le NF-582 se déclare webcam USB-C) ---------- */
   async connectUVC(deviceId){ await this.stop();
     const v=document.createElement('video'); v.playsInline=true; v.muted=true; v.setAttribute('playsinline','');
     const st=await navigator.mediaDevices.getUserMedia({audio:false, video:{
-      deviceId: deviceId?{exact:deviceId}:undefined, width:{ideal:S.usb.w}, height:{ideal:S.usb.h}, frameRate:{ideal:30}}});
-    v.srcObject=st; await v.play(); this.video=v; this.mode='uvc'; this.running=true;
-    this.info='UVC '+(deviceId||'auto'); this._grabLoop(); }
+      deviceId: deviceId?{exact:deviceId}:undefined,
+      width:{ideal:S.usb.w}, height:{ideal:S.usb.h}, frameRate:{ideal:30}}});
+    v.srcObject=st; await v.play();
+    this.video=v; this.mode='uvc'; this.running=true;
+    this.info='UVC '+(v.videoWidth||'?')+'×'+(v.videoHeight||'?');   // résolution réelle du flux
+    this._grabLoop(); }
+
+  /* v3.2 : résolution NATIVE du flux (plus d'étirement 256×192 forcé) */
   _grabLoop(){ const c=document.createElement('canvas'), g=c.getContext('2d',{willReadFrequently:true});
     this._timer=setInterval(()=>{ if(!this.running||this.paused||!this.video?.videoWidth) return;
-      const w=S.usb.w||256,h=S.usb.h||192; if(c.width!==w){c.width=w;c.height=h;}
-      g.drawImage(this.video,0,0,w,h); const d=g.getImageData(0,0,w,h).data, gray=new Uint8Array(w*h);
+      const w=this.video.videoWidth, h=this.video.videoHeight;
+      if(c.width!==w){ c.width=w; c.height=h; }
+      g.drawImage(this.video,0,0,w,h);
+      const d=g.getImageData(0,0,w,h).data, gray=new Uint8Array(w*h);
       for(let i=0,p=0;i<gray.length;i++,p+=4) gray[i]=(d[p]*.299+d[p+1]*.587+d[p+2]*.114)|0;
       this._push({w,h,gray,temps:null,ts:Date.now()}); },33); }
+
+  /* ---------- MODE 2 — WebUSB vendor (protocole NOYAFA configurable) ---------- */
   async connectUSB(){ if(!('usb' in navigator)) throw new Error('WebUSB indisponible (Chrome/Edge Android, HTTPS).');
     await this.stop();
     const vid=parseInt(S.usb.vid,16), pid=parseInt(S.usb.pid,16);
@@ -29,12 +44,15 @@ export class Thermal {
     await dev.claimInterface(S.usb.iface|0);
     this.device=dev; this.mode='usb'; this.running=true; this._buf=new Uint8Array(0);
     this.info='USB '+dev.productName; this._pump(); }
+
   async _pump(){ while(this.running){ try{
       const r=await this.device.transferIn(S.usb.epIn|0, S.usb.pkt||16384);
       if(r.data?.byteLength && !this.paused)
         this._parse(new Uint8Array(r.data.buffer,r.data.byteOffset,r.data.byteLength));
     }catch(e){ if(this.running){ this.info='USB: '+e.message; await sleep(250); } } } }
+
   _cat(a,b){ const o=new Uint8Array(a.length+b.length); o.set(a); o.set(b,a.length); return o; }
+
   _parse(chunk){ this._buf=this._cat(this._buf,chunk);
     const U=S.usb,w=U.w||256,h=U.h||192, need=U.fmt==='u8'?w*h:w*h*2; let idx=U.hdr|0;
     if(U.magic){ const m=[...U.magic.replace(/\s/g,'').matchAll(/../g)].map(x=>parseInt(x[0],16));
@@ -48,6 +66,8 @@ export class Thermal {
     else if(U.fmt==='u8') this._push({w,h,gray:raw.slice(),temps:null,ts:Date.now()});
     else { const n=w*h, gray=new Uint8Array(n); for(let i=0;i<n;i++) gray[i]=raw[i*2];
       this._push({w,h,gray,temps:null,ts:Date.now()}); } }
+
+  /* ---------- MODE 3 — démo sans matériel (cold spots simulés) ---------- */
   startDemo(){ this.stop().then(()=>{ const w=S.usb.w||256,h=S.usb.h||192;
     this.mode='demo'; this.running=true; this.info='Démo simulée'; let t=0;
     this._timer=setInterval(()=>{ if(this.paused) return; t+=0.033;
@@ -60,6 +80,7 @@ export class Thermal {
         for(const [sx,sy,amp,r] of spots){ const dx=(x/w-sx)/r, dy=(y/h-sy)/r; v+=amp*Math.exp(-(dx*dx+dy*dy)); }
         temps[y*w+x]=v; }
       this._push({w,h,temps,gray:null,ts:Date.now()}); },33); }); }
+
   _push(f){ this.frame=f; this._n++; const now=performance.now();
     if(now-this._t0>1000){ this.fps=Math.round(this._n*1000/(now-this._t0)); this._n=0; this._t0=now; } }
 }
