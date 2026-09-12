@@ -7,18 +7,21 @@ header h1{font-size:15px;margin:0;flex:1}header b{color:var(--acc)}
 #modes{display:flex;gap:6px;padding:6px 10px;background:var(--panel);overflow-x:auto}
 #modes button{flex:0 0 auto;padding:8px 12px;border:1px solid #33204d;background:#120a1e;color:var(--txt);border-radius:10px;font-size:12px}
 #modes button.on{background:var(--acc);color:#12061f;font-weight:800;border-color:var(--acc)}
-#sens{position:absolute;top:96px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
-main{position:relative;height:calc(100% - 152px)}
+#sens{position:absolute;top:96px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:75vw}
+main{position:relative;height:calc(100% - 88px)}
 #cv{width:100%;height:100%;display:block;touch-action:none}
 #spec{position:absolute;right:10px;bottom:10px;width:180px;height:46px;border:1px solid #33204d;border-radius:8px;opacity:.9;z-index:11}
 #rec{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#a00;padding:4px 12px;border-radius:14px;font-weight:700;z-index:11}
-#bar{display:flex;justify-content:space-around;align-items:center;height:64px;background:var(--panel)}
-#bar button{font-size:24px;background:none;border:0;color:var(--txt);padding:8px 10px;border-radius:50%}
-#bar button:active{background:#2a1745}
-#bPhoto{background:#fff;color:#000;width:50px;height:50px}
-#bVideo{background:#ff3b30;width:44px;height:44px}
+/* ---- rail vertical gauche : toujours visible ---- */
+#rail{position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:30;
+  display:flex;flex-direction:column;gap:10px;padding:8px;border-radius:26px;
+  background:rgba(23,11,38,.82);backdrop-filter:blur(6px);border:1px solid #33204d}
+#rail button{width:46px;height:46px;font-size:22px;border:0;border-radius:50%;background:#120a1e;color:var(--txt)}
+#rail button:active{background:#2a1745}
+#bPhoto{background:#fff;color:#000}
+#bVideo{background:#ff3b30}
 #bEvp.on{background:var(--acc);color:#12061f}
-.sheet{position:fixed;inset:auto 0 0 0;max-height:78vh;overflow:auto;background:var(--panel);border-radius:18px 18px 0 0;padding:14px;transform:translateY(105%);transition:.25s;z-index:20}
+.sheet{position:fixed;inset:auto 0 0 0;max-height:78vh;overflow:auto;background:var(--panel);border-radius:18px 18px 0 0;padding:14px;transform:translateY(105%);transition:.25s;z-index:40}
 .sheet.open{transform:none}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 label{display:flex;flex-direction:column;gap:3px;font-size:12px}
