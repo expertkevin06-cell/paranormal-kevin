@@ -19,7 +19,7 @@ const th=new Thermal(), depth=new DepthEngine(), evp=new EVP();
 let recorder=null, recT0=0, recTimer=null, tick=0, prevGray=null;
 const rgbReady=()=>rgbv.videoWidth>0;
 
-/* ---------- 5 MODES DE RENDU ---------- */
+/* ---------- 5 MODES ---------- */
 const MODES={ cam:{rgb:1,th:0,depth:0}, camth:{rgb:1,th:1,depth:0},
   camthlidar:{rgb:1,th:1,depth:1}, lidar:{rgb:0,th:0,depth:1}, th:{rgb:0,th:1,depth:0} };
 function setMode(m){ S.mode=m; const c=MODES[m];
@@ -28,7 +28,7 @@ function setMode(m){ S.mode=m; const c=MODES[m];
   save(); document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m)); }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 
-/* ---------- caméra arrière ---------- */
+/* ---------- caméra ---------- */
 async function startRGB(){ try{
   const st=await navigator.mediaDevices.getUserMedia({audio:false,
     video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
@@ -50,14 +50,14 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-/* ---------- canvas : taille protégée (v3.2) ---------- */
+/* ---------- canvas protégé ---------- */
 function fit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
-  if(r.width<10||r.height<10) return;              // évite un canvas dégénéré étiré
+  if(r.width<10||r.height<10) return;
   cv.width=Math.round(r.width*d); cv.height=Math.round(r.height*d); }
 addEventListener('resize',fit);
 addEventListener('orientationchange',()=>setTimeout(fit,150));
 
-/* ---------- boucle rendu + anomalies ---------- */
+/* ---------- boucle ---------- */
 function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
   const q=effQuality();
   if(S.layers.depth && depth.connected && rgbReady() && tick%Math.max(2,Math.round(30/q.dfps))===0)
@@ -78,9 +78,12 @@ function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
       rgb:(S.layers.rgb && rgbReady())?rgbv:null,
       th:S.layers.th?th.frame:null,
       depth:S.layers.depth?runtime.depth:null },{live:true});
-  }catch(e){ /* le rendu ne tue jamais la boucle */ }
+  }catch(e){}
   if(runtime.boxes.length&&S.layers.rgb&&rgbReady()) drawBoxes();
-  if(tick%30===0){ $('#sPara').textContent='👁 PARA '+(runtime.para|0);
+  if(tick%30===0){
+    runtime.thSrc = th.running ? (th.mode==='demo' ? 'DÉMO' : (th.info||th.mode).toUpperCase()) : '—';
+    $('#sSrc').textContent='SRC '+runtime.thSrc;
+    $('#sPara').textContent='👁 PARA '+(runtime.para|0);
     $('#sTh').textContent= runtime.temps? `🌡 Δ${(runtime.temps.mx-runtime.temps.mn).toFixed(1)}°` : '🌡 —';
     $('#sMag').textContent= Sens.mag? `🧲 ${Sens.mag.toFixed(0)} µT` : '🧲 n/d'; } }
 function drawBoxes(){ const sx=cv.width/rgbv.videoWidth, sy=cv.height/rgbv.videoHeight;
@@ -92,7 +95,7 @@ function drawBoxes(){ const sx=cv.width/rgbv.videoWidth, sy=cv.height/rgbv.video
     ctx.fillText(pres?`PRÉSENCE ? ${(b.score*100)|0}%`:`${b.label} ${(b.score*100)|0}%`,b.bbox[0]*sx,b.bbox[1]*sy-6); }
   ctx.restore(); }
 
-/* ---------- moteur d'anomalies ---------- */
+/* ---------- anomalies ---------- */
 function nearFrac(d){ let n=0; for(let i=0;i<d.data.length;i++) if(d.data[i]<0.25) n++;
   runtime.near=n/d.data.length; }
 const baselineMean=k=>{ const b=Anom.base[k]; if(!b||b.length<30) return null;
@@ -155,7 +158,7 @@ onNet(n=>{ $('#net').textContent=n.label+(n.online?'':' — offline actif');
 initSensors(); initMotion();
 addEventListener('deviceorientation',e=>{ runtime.tilt={beta:e.beta||0,gamma:e.gamma||0}; });
 
-/* ---------- bindings réglages ---------- */
+/* ---------- bindings ---------- */
 function bind(id,get,set){ const el=$('#'+id); if(!el) return; const t=el.type;
   const paint=v=>{ if(t==='checkbox') el.checked=v; else el.value=v;
     el.closest('label')?.querySelector('output')&&(el.closest('label').querySelector('output').textContent=v); };
@@ -179,6 +182,7 @@ bind('wb',()=>S.expert.wb,v=>S.expert.wb=v);
 ['hud','legend','hist','crosshair','hotspot','coldspot','meshOn','isoOn'].forEach(k=>bind(k,()=>S[k],v=>S[k]=v));
 bind('dotStep',()=>S.dotStep,v=>S.dotStep=v); bind('meshAlpha',()=>S.meshAlpha,v=>S.meshAlpha=v);
 bind('isoAbove',()=>S.isoAbove,v=>S.isoAbove=v); bind('isoStep',()=>S.isoStep,v=>S.isoStep=v);
+bind('alignFit',()=>S.align.fit||'cover',v=>S.align.fit=v);
 ['ox','oy','sx','sy'].forEach(k=>bind(k,()=>S.align[k],v=>S.align[k]=v));
 bind('mirror',()=>S.align.mirror,v=>S.align.mirror=v);
 ['autoQuality','cloudReport','prefetchHD'].forEach(k=>bind(k,()=>S.net[k],v=>S.net[k]=v));
@@ -192,7 +196,7 @@ bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
 $('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD(); toast('Modèle HD caché offline.'); };
 
-/* ---------- source thermique (la démo revient si échec) ---------- */
+/* ---------- source thermique ---------- */
 $('#bSource').onclick=()=>$('#srcDlg').showModal();
 $('#sClose').onclick=()=>$('#srcDlg').close();
 $('#sUvc').onclick=async()=>{ $('#srcDlg').close();
@@ -274,11 +278,11 @@ function flash(){ const f=document.createElement('div');
   document.body.appendChild(f); setTimeout(()=>f.style.opacity=0,30); setTimeout(()=>f.remove(),350); }
 let tt; function toast(m){ let el=$('#toast');
   if(!el){ el=document.createElement('div'); el.id='toast';
-    el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#241238;color:#fff;padding:8px 16px;border-radius:20px;z-index:99;max-width:86vw';
+    el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#241238;color:#fff;padding:8px 16px;border-radius:20px;z-index:50;max-width:86vw';
     document.body.appendChild(el); }
   el.textContent=m; el.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>el.style.display='none',3000); }
 
-/* ---------- démarrage (raccourcis + accès réglages par ?set=1) ---------- */
+/* ---------- démarrage ---------- */
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode') && MODES[qp.get('mode')]) setMode(qp.get('mode'));
 else setMode(S.mode||'camthlidar');
