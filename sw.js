@@ -1,4 +1,4 @@
-const V='pk-v8';
+const V='pk-v9';
 const PRECACHE=['./','./index.html','./offline.html','./styles.css','./manifest.webmanifest',
  './js/state.js','./js/db.js','./js/palettes.js','./js/net.js','./js/thermal.js','./js/vision.js',
  './js/expert.js','./js/render.js','./js/capture.js','./js/ai.js','./js/sensors.js','./js/evp.js',
