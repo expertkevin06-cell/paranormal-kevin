@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paranormal by Kevin — APK</title>
+<body style="background:#0b0614;color:#efe9ff;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;text-align:center">
+<div><h1>👁 Paranormal by Kevin</h1>
+<img id="qr" alt="QR APK" style="width:220px;border-radius:12px;background:#fff;padding:8px">
+<p><a id="dl" href="app-release-signed.apk" download style="color:#b26bff;font-weight:700">⬇ Télécharger l'APK signée</a></p>
+<button id="sh" style="padding:12px 22px;border:0;border-radius:10px;background:#b26bff;font-weight:700">📤 Partager (WhatsApp/Bluetooth…)</button>
+<p style="opacity:.7;font-size:12px">Autoriser « sources inconnues » à l'installation.</p></div>
+<script>
+const U=location.origin+'/app-release-signed.apk';
+document.getElementById('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(U);
+document.getElementById('sh').onclick=async()=>{ const b=await fetch(U).then(r=>r.blob());
+  const f=new File([b],'ParanormalByKevin.apk',{type:b.type});
+  navigator.canShare?.({files:[f]})? navigator.share({files:[f],title:'Paranormal by Kevin'}) : alert('Utilisez le lien direct.'); };
+</script>
