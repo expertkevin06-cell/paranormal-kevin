@@ -33,7 +33,7 @@ async function startRGB(){ try{
   const st=await navigator.mediaDevices.getUserMedia({audio:false,
     video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
   rgbv.srcObject=st; rgbv.hidden=false; await rgbv.play(); runtime.rgb=rgbv; buildCamControls();
- }catch(e){ toast('Caméra : '+e.message); } }
+ }catch(e){ toast('Caméra refusée : vérifiez le cadenas URL → autorisations. '+e.message); } }
 async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0]; if(!tr) return;
   const cap=tr.getCapabilities?.()||{}; const box=$('#camCtl'); box.innerHTML='';
   const mk=(label,key,min,max,step)=>{ const l=document.createElement('label');
@@ -50,7 +50,7 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-/* ---------- boucle rendu + anomalies ---------- */
+/* ---------- boucle rendu + anomalies (v3.1 : anti écran noir) ---------- */
 function fit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
   cv.width=r.width*d; cv.height=r.height*d; }
 addEventListener('resize',fit);
@@ -69,8 +69,12 @@ function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
     runtime.fx.peak =S.expert.peaking?peakingCanvas(g,160,120):null; }
   if(evp.on && !spec.hidden) specCtx.drawImage(evp.spec,0,0,spec.width,spec.height);
   if(tick%15===0) sampleAnomalies();
-  renderScene(ctx,cv.width,cv.height,{ rgb:S.layers.rgb?rgbv:null, th:S.layers.th?th.frame:null,
-    depth:S.layers.depth?runtime.depth:null },{live:true});
+  try{
+    renderScene(ctx,cv.width,cv.height,{
+      rgb:(S.layers.rgb && rgbReady())?rgbv:null,   // v3.1 : jamais de vidéo sans image
+      th:S.layers.th?th.frame:null,
+      depth:S.layers.depth?runtime.depth:null },{live:true});
+  }catch(e){ /* le rendu ne doit jamais tuer la boucle */ }
   if(runtime.boxes.length&&S.layers.rgb&&rgbReady()) drawBoxes();
   if(tick%30===0){ $('#sPara').textContent='👁 PARA '+(runtime.para|0);
     $('#sTh').textContent= runtime.temps? `🌡 Δ${(runtime.temps.mx-runtime.temps.mn).toFixed(1)}°` : '🌡 —';
@@ -105,7 +109,7 @@ function sampleAnomalies(){ if(!S.anomaly.enabled){ updateScore({}); return; }
   let zAud=0; if(evp.on){ pushSample('audio',evp.rms*100); zAud=dev('audio',evp.rms*100);
     if(zAud>S.anomaly.audioSd && cooled('evp')){ const clip=evp.clip();
       fire('PIC EVP', sev(zAud,S.anomaly.audioSd), `RMS ${(evp.rms*100).toFixed(1)} (z=${zAud.toFixed(1)}) clip 6 s joint`, {clip}); } }
-  let mN=0; if(S.layers.rgb){ pushSample('motion',runtime.motion);
+  let mN=0; if(S.layers.rgb && rgbReady()){ pushSample('motion',runtime.motion);
     if(Sens.motionStill && runtime.motion>S.anomaly.motion && cooled('motion')){
       mN=runtime.motion/S.anomaly.motion;
       fire('MOUVEMENT INEXPLIQUÉ', sev(mN,1), `Δpixels ${runtime.motion.toFixed(1)} appareil immobile`); } }
@@ -184,7 +188,7 @@ bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
 $('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD(); toast('Modèle HD caché offline.'); };
 
-/* ---------- source thermique ---------- */
+/* ---------- source thermique (v3.1 : la démo revient si échec) ---------- */
 $('#bSource').onclick=()=>$('#srcDlg').showModal();
 $('#sClose').onclick=()=>$('#srcDlg').close();
 $('#sUvc').onclick=async()=>{ $('#srcDlg').close();
@@ -194,9 +198,10 @@ $('#sUvc').onclick=async()=>{ $('#srcDlg').close();
     if(S.mode==='cam') setMode('camth'); else if(S.mode==='lidar') setMode('camthlidar');
     else { S.layers.th=true; th.setPaused(false); }
     toast('NF-582 connecté : '+th.info); }
-  catch(e){ toast('UVC échec → WebUSB. '+e.message); } };
+  catch(e){ toast('UVC échec → WebUSB ou Démo. '+e.message); if(!th.running) th.startDemo(); } };
 $('#sUsb').onclick=async()=>{ $('#srcDlg').close();
-  try{ await th.connectUSB(); S.layers.th=true; th.setPaused(false); toast('WebUSB OK : '+th.info); }catch(e){ toast(e.message); } };
+  try{ await th.connectUSB(); S.layers.th=true; th.setPaused(false); toast('WebUSB OK : '+th.info); }
+  catch(e){ toast(e.message+' (sans capteur branché, utilisez 🧪 Démo)'); if(!th.running) th.startDemo(); } };
 $('#sDemo').onclick=()=>{ $('#srcDlg').close(); th.startDemo(); S.layers.th=true; th.setPaused(false); toast('Démo active (cold spots simulés)'); };
 $('#sStop').onclick=async()=>{ await th.stop(); $('#srcDlg').close(); toast('Capteur déconnecté'); };
 
@@ -269,7 +274,7 @@ let tt; function toast(m){ let el=$('#toast');
     document.body.appendChild(el); }
   el.textContent=m; el.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>el.style.display='none',3000); }
 
-/* ---------- démarrage (avec raccourcis manifest) ---------- */
+/* ---------- démarrage ---------- */
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode') && MODES[qp.get('mode')]) setMode(qp.get('mode'));
 else setMode(S.mode||'camthlidar');
