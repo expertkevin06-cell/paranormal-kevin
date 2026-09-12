@@ -17,7 +17,6 @@
   <h1>Paranormal <b>by Kevin</b></h1>
   <button id="btnInstall" class="ghost" hidden>Installer</button>
 </header>
-
 <nav id="modes">
   <button data-mode="cam">📷 CAM IA</button>
   <button data-mode="camth">📷+ CAM+TH</button>
@@ -25,7 +24,6 @@
   <button data-mode="lidar">🛰 LiDAR</button>
   <button data-mode="th">🌡 TH</button>
 </nav>
-
 <div id="sens">
   <span class="badge" id="sSrc" title="Autodiagnostic">SRC —</span>
   <span class="badge" id="sMag">🧲 — µT</span>
@@ -33,33 +31,24 @@
   <span class="badge" id="sPara">👁 PARA 0</span>
   <span class="badge" id="sEvp">🎙 off</span>
 </div>
-
 <main>
   <canvas id="cv"></canvas>
   <video id="rgbv" playsinline muted hidden></video>
   <canvas id="spec" width="256" height="64" hidden></canvas>
   <div id="rec" hidden>● REC <span id="rect">00:00</span></div>
 </main>
-
 <nav id="rail">
-  <button id="bSource" title="Capteur NF-582">🔌</button>
-  <button id="bPhoto" title="Photo">📸</button>
-  <button id="bVideo" title="Vidéo">⏺</button>
-  <button id="bEvp" title="EVP micro">🎙</button>
-  <button id="bJournal" title="Journal">📓</button>
-  <button id="bGallery" title="Galerie">🖼</button>
-  <button id="bAI" title="Rapport IA">🤖</button>
-  <button id="bSet" title="Réglages">⚙️</button>
+  <button id="bSource">🔌</button><button id="bPhoto">📸</button><button id="bVideo">⏺</button>
+  <button id="bEvp">🎙</button><button id="bJournal">📓</button><button id="bGallery">🖼</button>
+  <button id="bAI">🤖</button><button id="bSet">⚙️</button>
 </nav>
-
 <aside id="panel" class="sheet">
   <h2>Réglages investigation</h2>
   <div class="grid">
     <label>Mode fusion<select id="fusionMode">
-      <option value="msx">MSX (détail RGB)</option><option value="pip">Picture-in-picture</option>
-      <option value="blend">Fondu 55%</option><option value="splith">Split horizontal</option>
-      <option value="splitv">Split vertical</option><option value="contour">Isothermes</option>
-      <option value="outline">Surimpression 80%</option></select></label>
+      <option value="msx">MSX</option><option value="pip">PiP</option><option value="blend">Fondu 55%</option>
+      <option value="splith">Split H</option><option value="splitv">Split V</option>
+      <option value="contour">Isothermes</option><option value="outline">Surimpression</option></select></label>
     <label>Palette<select id="palette"></select></label>
     <label>Unité<select id="unit"><option value="C">°C</option><option value="F">°F</option></select></label>
     <label>Émissivité <output></output><input type="range" id="emissivity" min="0.1" max="1" step="0.01"></label>
@@ -68,42 +57,40 @@
     <label>Span <output></output><input type="range" id="span" min="2" max="200"></label>
     <label>Plage min<input type="number" id="Tmin"></label>
     <label>Plage max<input type="number" id="Tmax"></label>
-    <fieldset><legend>👁 Détection d'anomalies (entités)</legend>
-      <label class="chk"><input type="checkbox" id="anomalyOn"> Moteur PARA actif</label>
-      <label class="chk"><input type="checkbox" id="night"> Vision nocturne / full-spectrum</label>
-      <label class="chk"><input type="checkbox" id="aiDetect"> IA visuelle (présences)</label>
-      <label class="chk"><input type="checkbox" id="vibrate"> Vibration + flash alerte</label>
-      <label class="chk"><input type="checkbox" id="autoSnap"> Instantané auto si sev ≥ 2</label>
-      <label>Seuil σ thermique <output></output><input type="range" id="thSd" min="2" max="8" step="0.5"></label>
-      <label>Seuil σ magnétique <output></output><input type="range" id="magSd" min="2" max="8" step="0.5"></label>
-      <label>Seuil σ audio EVP <output></output><input type="range" id="audioSd" min="2" max="8" step="0.5"></label>
-      <label>Seuil mouvement <output></output><input type="range" id="motion" min="4" max="40"></label>
-      <label>Seuil approche LiDAR <output></output><input type="range" id="prox" min="0.1" max="0.8" step="0.05"></label>
+    <fieldset><legend>👁 Anomalies</legend>
+      <label class="chk"><input type="checkbox" id="anomalyOn"> Moteur PARA</label>
+      <label class="chk"><input type="checkbox" id="night"> Vision nocturne</label>
+      <label class="chk"><input type="checkbox" id="aiDetect"> IA présences</label>
+      <label class="chk"><input type="checkbox" id="vibrate"> Vibration/flash</label>
+      <label class="chk"><input type="checkbox" id="autoSnap"> Auto‑snap sev≥2</label>
+      <label>σ thermique <output></output><input type="range" id="thSd" min="2" max="8" step="0.5"></label>
+      <label>σ magnétique <output></output><input type="range" id="magSd" min="2" max="8" step="0.5"></label>
+      <label>σ audio <output></output><input type="range" id="audioSd" min="2" max="8" step="0.5"></label>
+      <label>Mouvement <output></output><input type="range" id="motion" min="4" max="40"></label>
+      <label>Approche LiDAR <output></output><input type="range" id="prox" min="0.1" max="0.8" step="0.05"></label>
     </fieldset>
     <fieldset><legend>📷 Photo expert</legend>
-      <label>Stack frames <output></output><input type="range" id="stack" min="1" max="8"></label>
+      <label>Stack <output></output><input type="range" id="stack" min="1" max="8"></label>
       <label>Denoise <output></output><input type="range" id="denoise" min="0" max="1" step="0.05"></label>
       <label>Netteté <output></output><input type="range" id="sharpen" min="0" max="2" step="0.05"></label>
       <label>Contraste local <output></output><input type="range" id="clahe" min="0" max="1" step="0.05"></label>
       <label>Saturation <output></output><input type="range" id="sat" min="0.5" max="2" step="0.05"></label>
-      <label>Vibrance <output></output><input type="range" id="vibrance" min="0" max="1" step="0.05"></label>
-      <label>Contraste <output></output><input type="range" id="contrast" min="0.7" max="1.6" step="0.02"></label>
       <label>Gamma <output></output><input type="range" id="gamma" min="0.5" max="2" step="0.05"></label>
       <label>WB<select id="wb"><option value="auto">Auto</option><option value="man">Kelvin</option></select></label>
       <label>Kelvin <output></output><input type="range" id="kelvin" min="2500" max="9000" step="100"></label>
       <label>Vignette <output></output><input type="range" id="vignette" min="0" max="0.6" step="0.05"></label>
       <label>Détail MSX <output></output><input type="range" id="detailTransfer" min="0" max="1.5" step="0.05"></label>
-      <label class="chk"><input type="checkbox" id="grid"> Grille tiers</label>
+      <label class="chk"><input type="checkbox" id="grid"> Grille</label>
       <label class="chk"><input type="checkbox" id="zebra"> Zébra</label>
-      <label class="chk"><input type="checkbox" id="peaking"> Focus peaking</label>
-      <label class="chk"><input type="checkbox" id="horizon"> Niveau / horizon</label>
+      <label class="chk"><input type="checkbox" id="peaking"> Peaking</label>
+      <label class="chk"><input type="checkbox" id="horizon"> Horizon</label>
     </fieldset>
-    <fieldset><legend>Caméra (contrôles natifs)</legend><div id="camCtl" class="grid"></div></fieldset>
+    <fieldset><legend>Caméra native</legend><div id="camCtl" class="grid"></div></fieldset>
     <fieldset><legend>🛰 LiDAR</legend>
-      <label class="chk"><input type="checkbox" id="meshOn"> Maillage fil de fer</label>
-      <label>Pas maillage <output></output><input type="range" id="dotStep" min="6" max="40"></label>
+      <label class="chk"><input type="checkbox" id="meshOn"> Maillage</label>
+      <label>Pas <output></output><input type="range" id="dotStep" min="6" max="40"></label>
       <label>Opacité <output></output><input type="range" id="meshAlpha" min="0.1" max="1" step="0.05"></label>
-      <button id="bHD" class="primary">Modèle profondeur HD (Wi‑Fi/5G)</button>
+      <button id="bHD" class="primary">Modèle HD (Wi‑Fi/5G)</button>
     </fieldset>
     <label class="chk"><input type="checkbox" id="hud"> HUD</label>
     <label class="chk"><input type="checkbox" id="legend"> Légende</label>
@@ -113,78 +100,51 @@
     <label class="chk"><input type="checkbox" id="coldspot"> Cold spot</label>
     <label class="chk"><input type="checkbox" id="isoOn"> Alarme isotherme</label>
     <label>Seuil °C<input type="number" id="isoAbove"></label>
-    <label>Pas isothermes<input type="number" id="isoStep"></label>
+    <label>Pas iso<input type="number" id="isoStep"></label>
     <fieldset><legend>Alignement TH/RGB</legend>
-      <label>Cadration thermique<select id="alignFit">
-        <option value="cover">Remplir l'écran (cover)</option>
-        <option value="contain">Conserver le ratio (contain)</option>
-        <option value="stretch">Étirer (stretch)</option>
-      </select></label>
+      <label>Cadration<select id="alignFit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="stretch">Stretch</option></select></label>
       <label>X <output></output><input type="range" id="ox" min="-300" max="300"></label>
       <label>Y <output></output><input type="range" id="oy" min="-300" max="300"></label>
-      <label>Échelle X <output></output><input type="range" id="sx" min="0.2" max="2" step="0.01"></label>
-      <label>Échelle Y <output></output><input type="range" id="sy" min="0.2" max="2" step="0.01"></label>
+      <label>ÉchX <output></output><input type="range" id="sx" min="0.2" max="2" step="0.01"></label>
+      <label>ÉchY <output></output><input type="range" id="sy" min="0.2" max="2" step="0.01"></label>
       <label class="chk"><input type="checkbox" id="mirror"> Miroir</label>
     </fieldset>
-    <fieldset><legend>Réseau & IA cloud</legend>
-      <label class="chk"><input type="checkbox" id="autoQuality"> Qualité auto 4G/5G/Wi‑Fi</label>
+    <fieldset><legend>Réseau & IA</legend>
+      <label class="chk"><input type="checkbox" id="autoQuality"> Qualité auto</label>
       <label class="chk"><input type="checkbox" id="cloudReport"> Rapport cloud</label>
-      <label class="chk"><input type="checkbox" id="prefetchHD"> Préfetch HD Wi‑Fi/5G</label>
-      <label>LLM<select id="llmProvider"><option value="none">Local sans clé</option><option value="groq">Groq gratuit</option><option value="gemini">Gemini gratuit</option></select></label>
-      <label>Clé API<input id="llmKey" type="password"></label>
+      <label class="chk"><input type="checkbox" id="prefetchHD"> Préfetch HD</label>
+      <label>LLM<select id="llmProvider"><option value="none">Local</option><option value="groq">Groq</option><option value="gemini">Gemini</option></select></label>
+      <label>Clé<input id="llmKey" type="password"></label>
     </fieldset>
-    <label>Format photo<select id="photoFormat"><option value="png">PNG</option><option value="jpeg">JPEG</option></select></label>
+    <label>Photo<select id="photoFormat"><option value="png">PNG</option><option value="jpeg">JPEG</option></select></label>
     <label>FPS vidéo<input type="number" id="videoFps" min="15" max="60"></label>
-    <label>Débit Mbps<input type="number" id="videoBitrate" min="1" max="40"></label>
-    <label class="chk"><input type="checkbox" id="mic"> Micro (vidéo)</label>
-    <fieldset><legend>Capteur NOYAFA NF-582 (USB-C)</legend>
-      <label class="chk"><input type="checkbox" id="colorUVC"> Flux déjà coloré (palette constructeur)</label>
-      <label>Vendor ID hex<input id="vid" placeholder="ex 0x1FC9"></label>
-      <label>Product ID hex<input id="pid"></label>
-      <label>Interface<input type="number" id="iface"></label>
-      <label>Endpoint IN<input type="number" id="epIn"></label>
-      <label>Format<select id="fmt"><option value="u16temp">16 bits radiométrique</option><option value="u8">8 bits gris</option><option value="yuy2">YUY2/UVC</option></select></label>
-      <label>Largeur<input type="number" id="uw"></label>
-      <label>Hauteur<input type="number" id="uh"></label>
-      <label>Magic hex<input id="magic"></label>
-      <label>En-tête octets<input type="number" id="hdr"></label>
-      <label>Endian<select id="endian"><option value="le">Little</option><option value="be">Big</option></select></label>
-      <label>Échelle °C/LSB<input type="number" id="scale" step="0.001"></label>
-      <label>Offset °C<input type="number" id="offset" step="0.1"></label>
+    <label>Mbps<input type="number" id="videoBitrate" min="1" max="40"></label>
+    <label class="chk"><input type="checkbox" id="mic"> Micro vidéo</label>
+    <fieldset><legend>NF-582 USB-C</legend>
+      <label class="chk"><input type="checkbox" id="colorUVC"> Flux déjà coloré</label>
+      <label>VID hex<input id="vid"></label><label>PID hex<input id="pid"></label>
+      <label>Interface<input type="number" id="iface"></label><label>EpIn<input type="number" id="epIn"></label>
+      <label>Format<select id="fmt"><option value="u16temp">16 bits</option><option value="u8">8 bits</option><option value="yuy2">YUY2</option></select></label>
+      <label>Larg<input type="number" id="uw"></label><label>Haut<input type="number" id="uh"></label>
+      <label>Magic<input id="magic"></label><label>Hdr<input type="number" id="hdr"></label>
+      <label>Endian<select id="endian"><option value="le">LE</option><option value="be">BE</option></select></label>
+      <label>Scale<input type="number" id="scale" step="0.001"></label><label>Offset<input type="number" id="offset" step="0.1"></label>
     </fieldset>
-    <p class="disclaimer">⚠️ Outil de mesure d'anomalies physiques (ΔT, magnétisme, audio, mouvement, profondeur).
-    Les causes naturelles sont fréquentes : aucune détection d'entité n'est garantie. Usage investigation & debunking.</p>
+    <p class="disclaimer">⚠️ Mesures physiques (ΔT, magnétisme, audio, mouvement, profondeur). Causes naturelles fréquentes ; aucune entité « prouvée ». Investigation & debunking.</p>
   </div>
   <button id="bClose" class="primary">Fermer</button>
 </aside>
-
-<aside id="gallery" class="sheet">
-  <h2>Galerie <span id="quota"></span></h2>
-  <div id="ggrid"></div>
-  <button id="bGClose" class="primary">Fermer</button>
-</aside>
-
-<aside id="journal" class="sheet">
-  <h2>📓 Journal des événements</h2>
-  <div id="jlist"></div>
-  <button id="bJClose" class="primary">Fermer</button>
-</aside>
-
-<aside id="diag" class="sheet">
-  <h2>🩺 Autodiagnostic</h2>
-  <div id="dlist" class="dlist"></div>
-  <button id="bDClose" class="primary">Fermer</button>
-</aside>
-
+<aside id="gallery" class="sheet"><h2>Galerie <span id="quota"></span></h2><div id="ggrid"></div><button id="bGClose" class="primary">Fermer</button></aside>
+<aside id="journal" class="sheet"><h2>📓 Journal</h2><div id="jlist"></div><button id="bJClose" class="primary">Fermer</button></aside>
+<aside id="diag" class="sheet"><h2>🩺 Autodiagnostic</h2><div id="dlist" class="dlist"></div><button id="bDClose" class="primary">Fermer</button></aside>
 <dialog id="srcDlg">
-  <h3>Capteur thermique NF-582</h3>
+  <h3>Capteur NF-582</h3>
   <button class="primary" id="sUvc">📷 Webcam USB (UVC)</button>
-  <button class="primary" id="sUsb">🔌 WebUSB (protocole vendor)</button>
-  <button class="primary" id="sDemo">🧪 Démo (cold spots simulés)</button>
+  <button class="primary" id="sUsb">🔌 WebUSB vendor</button>
+  <button class="primary" id="sDemo">🧪 Démo</button>
   <button id="sStop">⏹ Déconnecter</button>
   <button id="sClose">Fermer</button>
 </dialog>
-
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
