@@ -2,9 +2,9 @@ import { S, view, runtime } from './state.js';
 import { LUTS } from './palettes.js';
 const tc=document.createElement('canvas'), tg=tc.getContext('2d');
 export const fmtT = v => (S.unit==='F'? v*9/5+32 : v).toFixed(1)+'°'+S.unit;
+const U = ()=> runtime.px||2;                     /* v3.5 : unité = densité de pixels */
 const cover=(W,H,sw,sh)=>{ const r=Math.max(W/sw,H/sh), w=sw*r, h=sh*r; return {x:(W-w)/2,y:(H-h)/2,w,h}; };
 
-/* v3.3 : rectangle thermique selon cadration choisie (cover/contain/stretch) */
 function thermalRect(f, base, A){
   const fit=S.align.fit||'cover';
   if(fit==='contain'){ const s=Math.min(base.w/f.w, base.h/f.h), w=f.w*s, h=f.h*s;
@@ -15,6 +15,16 @@ function thermalRect(f, base, A){
 
 export function thermalImageData(f, rgbSrc, msxAmount){
   const {w,h}=f; if(tc.width!==w){tc.width=w;tc.height=h;}
+  if(f.color && f.ccanvas){ tg.drawImage(f.ccanvas,0,0);
+    const gd=tg.getImageData(0,0,w,h).data, temps=new Float32Array(w*h);
+    for(let i=0,p=0;i<temps.length;i++,p+=4)
+      temps[i]=S.Tmin+((gd[p]*.299+gd[p+1]*.587+gd[p+2]*.114)/255)*(S.Tmax-S.Tmin);
+    let mn,mx;
+    if(S.agc==='auto'){ mn=Infinity; mx=-Infinity;
+      for(let i=0;i<temps.length;i++){ const v=temps[i]; if(v<mn)mn=v; if(v>mx)mx=v; } }
+    else { mn=S.level-S.span/2; mx=S.level+S.span/2; }
+    runtime.temps={data:temps,w,h,mn,mx,avg:temps.reduce((a,b)=>a+b,0)/temps.length};
+    return {mn,mx}; }
   const img=tg.createImageData(w,h), lut=LUTS[S.palette];
   let temps=f.temps, mn=S.Tmin, mx=S.Tmax;
   if(!temps){ temps=new Float32Array(w*h);
@@ -37,17 +47,17 @@ export function thermalImageData(f, rgbSrc, msxAmount){
     d[i*4]=lut[k*3]*fct; d[i*4+1]=lut[k*3+1]*fct; d[i*4+2]=lut[k*3+2]*fct; d[i*4+3]=255; }
   tg.putImageData(img,0,0); return {mn,mx}; }
 
-function lidarMesh(ctx,r,depth){ const st=Math.max(4,S.dotStep|0);
-  ctx.save(); ctx.lineWidth=1; ctx.globalAlpha=S.meshAlpha;
+function lidarMesh(ctx,r,depth){ const st=Math.max(4,S.dotStep|0), u=U();
+  ctx.save(); ctx.lineWidth=Math.max(1,u*0.5); ctx.globalAlpha=S.meshAlpha;
   for(let y=0;y<depth.h-st;y+=st)for(let x=0;x<depth.w-st;x+=st){
     const nz=1-depth.data[y*depth.w+x], px=r.x+(x/depth.w)*r.w, py=r.y+(y/depth.h)*r.h;
     ctx.strokeStyle=`rgba(178,107,255,${0.25+nz*0.5})`;
-    ctx.beginPath(); ctx.arc(px,py,S.pointSize+nz*2,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px,py,(S.pointSize+nz*2)*u*0.6,0,7); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(r.x+((x+st)/depth.w)*r.w,py); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px,r.y+((y+st)/depth.h)*r.h); ctx.stroke(); }
   ctx.restore(); }
 function isoContours(ctx,f,r){ const T=runtime.temps; if(!T) return;
-  ctx.save(); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1;
+  ctx.save(); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=Math.max(1,U()*0.5);
   for(let t=Math.ceil(T.mn/S.isoStep)*S.isoStep; t<T.mx; t+=S.isoStep){ ctx.beginPath();
     for(let y=0;y<f.h-1;y++)for(let x=0;x<f.w-1;x++){
       const a=T.data[y*f.w+x], b=T.data[y*f.w+x+1], c=T.data[(y+1)*f.w+x];
@@ -60,51 +70,52 @@ function isoAlarm(ctx,f,r){ const T=runtime.temps; if(!T) return;
   for(let y=0;y<f.h;y+=2)for(let x=0;x<f.w;x+=2) if(T.data[y*f.w+x]>S.isoAbove)
     ctx.fillRect(r.x+(x/f.w)*r.w, r.y+(y/f.h)*r.h, r.w/f.w*2, r.h/f.h*2);
   ctx.restore(); }
-function spots(ctx,f,r){ const T=runtime.temps; if(!T) return;
+function spots(ctx,f,r){ const T=runtime.temps; if(!T) return; const u=U();
   let hi=0,lo=0; for(let i=0;i<T.data.length;i++){ if(T.data[i]>T.data[hi])hi=i; if(T.data[i]<T.data[lo])lo=i; }
   const px=i=>r.x+((i%f.w)/f.w)*r.w, py=i=>r.y+((i/f.w|0)/f.h)*r.h;
-  ctx.save(); ctx.scale(1/view.z,1/view.z); ctx.font='bold 13px system-ui';
+  ctx.save(); ctx.scale(1/view.z,1/view.z); ctx.font='bold '+(13*u)+'px system-ui';
   const mark=(i,col)=>{ const x=px(i)*view.z,y=py(i)*view.z;
-    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.strokeRect(x-9,y-9,18,18);
-    ctx.fillStyle=col; ctx.fillText(fmtT(T.data[i]),x+12,y-10); };
+    ctx.strokeStyle=col; ctx.lineWidth=2*u; ctx.strokeRect(x-9*u,y-9*u,18*u,18*u);
+    ctx.fillStyle=col; ctx.fillText(fmtT(T.data[i]),x+12*u,y-10*u); };
   if(S.hotspot) mark(hi,'#ff3b30'); if(S.coldspot) mark(lo,'#7df9ff');
   if(S.crosshair){ const cx=(r.x+r.w/2)*view.z, cy=(r.y+r.h/2)*view.z;
-    ctx.strokeStyle='#b26bff'; ctx.beginPath();
-    ctx.moveTo(cx-16,cy); ctx.lineTo(cx+16,cy); ctx.moveTo(cx,cy-16); ctx.lineTo(cx,cy+16); ctx.stroke();
-    ctx.fillStyle='#b26bff'; ctx.fillText(fmtT(T.data[((T.h/2|0)*T.w)+(T.w/2|0)]),cx+18,cy+4); }
+    ctx.strokeStyle='#b26bff'; ctx.lineWidth=1.5*u; ctx.beginPath();
+    ctx.moveTo(cx-16*u,cy); ctx.lineTo(cx+16*u,cy); ctx.moveTo(cx,cy-16*u); ctx.lineTo(cx,cy+16*u); ctx.stroke();
+    ctx.fillStyle='#b26bff'; ctx.fillText(fmtT(T.data[((T.h/2|0)*T.w)+(T.w/2|0)]),cx+18*u,cy+4*u); }
   ctx.restore(); }
-function drawHist(ctx,x,y,w,h){ const H=runtime.hist; if(!H) return;
+function drawHist(ctx,x,y,w,h){ const H=runtime.hist; if(!H) return; const u=U();
   ctx.save(); ctx.fillStyle='rgba(10,4,20,.6)'; ctx.fillRect(x,y,w,h);
+  ctx.lineWidth=Math.max(1,u*0.5);
   const max=Math.max(...H.r,...H.g,...H.b)||1;
   const line=(arr,col)=>{ ctx.strokeStyle=col; ctx.beginPath();
     for(let i=0;i<256;i++){ const px=x+(i/255)*w, py=y+h-(arr[i]/max)*(h-4)-2;
       i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.stroke(); };
   line(H.r,'#f55'); line(H.g,'#5f5'); line(H.b,'#55f'); ctx.restore(); }
-function grid(ctx,W,H){ ctx.save(); ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=1;
+function grid(ctx,W,H){ ctx.save(); ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=Math.max(1,U()*0.5);
   for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(W*i/3,0); ctx.lineTo(W*i/3,H); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0,H*i/3); ctx.lineTo(W,H*i/3); ctx.stroke(); } ctx.restore(); }
-function horizon(ctx,W,H){ const t=runtime.tilt, roll=(t.gamma||0)*Math.PI/180;
-  ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(-roll); ctx.strokeStyle='rgba(178,107,255,.55)';
+function horizon(ctx,W,H){ const u=U(), t=runtime.tilt, roll=(t.gamma||0)*Math.PI/180;
+  ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(-roll); ctx.strokeStyle='rgba(178,107,255,.55)'; ctx.lineWidth=u;
   ctx.beginPath(); ctx.moveTo(-W,0); ctx.lineTo(W,0); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0,Math.max(-40,Math.min(40,(t.beta||0)-45))*1.5,6,0,7); ctx.stroke(); ctx.restore(); }
-function paraGauge(ctx,W,H){ const x=W-58, y=64, r=34, sc=runtime.para||0;
-  ctx.save(); ctx.lineWidth=7; ctx.strokeStyle='rgba(255,255,255,.12)';
+  ctx.beginPath(); ctx.arc(0,Math.max(-40,Math.min(40,(t.beta||0)-45))*1.5*u,6*u,0,7); ctx.stroke(); ctx.restore(); }
+function paraGauge(ctx,W,H){ const u=U(), x=W-58*u, y=64*u, r=34*u, sc=runtime.para||0;
+  ctx.save(); ctx.lineWidth=7*u; ctx.strokeStyle='rgba(255,255,255,.12)';
   ctx.beginPath(); ctx.arc(x,y,r,Math.PI*0.75,Math.PI*2.25); ctx.stroke();
   const col= sc>70?'#ff3b30': sc>40?'#ffb020':'#7df9ff';
   ctx.strokeStyle=col; ctx.beginPath();
   ctx.arc(x,y,r,Math.PI*0.75,Math.PI*0.75+(sc/100)*Math.PI*1.5); ctx.stroke();
-  ctx.fillStyle=col; ctx.font='bold 16px system-ui'; ctx.textAlign='center';
-  ctx.fillText(sc|0, x, y+5); ctx.font='9px system-ui'; ctx.fillText('PARA', x, y+18);
+  ctx.fillStyle=col; ctx.font='bold '+(16*u)+'px system-ui'; ctx.textAlign='center';
+  ctx.fillText(sc|0, x, y+5*u); ctx.font=(9*u)+'px system-ui'; ctx.fillText('PARA', x, y+18*u);
   ctx.restore(); }
 function flashOverlay(ctx,W,H){ if(Date.now()<runtime.flash){
     const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);
     g.addColorStop(0,'rgba(255,0,0,0)'); g.addColorStop(1,'rgba(255,0,0,.45)');
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H); } }
-/* v3.3 : filigrane quand aucune source réelle */
-function demoWatermark(ctx,W,H){ if(runtime.thSrc && runtime.thSrc.indexOf('DÉMO')===0){
-    ctx.save(); ctx.font='bold 13px system-ui'; ctx.textAlign='center';
+function demoWatermark(ctx,W,H){ const u=U();
+  if(runtime.thSrc && runtime.thSrc.indexOf('DÉMO')===0){
+    ctx.save(); ctx.font='bold '+(13*u)+'px system-ui'; ctx.textAlign='center';
     ctx.fillStyle='rgba(255,255,255,.75)';
-    ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)', W/2, H-14); ctx.restore(); } }
+    ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)', W/2, H-14*u); ctx.restore(); } }
 
 export function renderScene(ctx,W,H,L,o={}){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
@@ -117,7 +128,7 @@ export function renderScene(ctx,W,H,L,o={}){
     if(S.night) ctx.filter='brightness(2.1) contrast(1.15) saturate(1.1)';
     ctx.drawImage(L.rgb,rgbBase.x,rgbBase.y,rgbBase.w,rgbBase.h); ctx.restore(); }
   if(hasTH){
-    const msx=(S.fusionMode==='msx'&&hasRGB)? S.expert.detailTransfer : 0;
+    const msx=(S.fusionMode==='msx'&&hasRGB&&!L.th.color)? S.expert.detailTransfer : 0;
     span=thermalImageData(L.th, hasRGB?L.rgb:null, msx);
     const base = rgbBase || {x:0,y:0,w:W,h:H};
     tr = thermalRect(L.th, base, A);
@@ -126,7 +137,7 @@ export function renderScene(ctx,W,H,L,o={}){
       else ctx.drawImage(tc,tr.x,tr.y,tr.w,tr.h); ctx.restore(); };
     if(!hasRGB) drawT(1);
     else switch(S.fusionMode){
-      case 'pip':    drawT(1,()=>{ const s=Math.min(W,H)*0.3; ctx.rect(W-s-24,H-s-120,s,s); }); break;
+      case 'pip':    drawT(1,()=>{ const s=Math.min(W,H)*0.3; ctx.rect(W-s-24*U(),H-s-120*U(),s,s); }); break;
       case 'blend':  drawT(0.55); break;
       case 'splith': drawT(1,()=>ctx.rect(0,0,W,H/2)); break;
       case 'splitv': drawT(1,()=>ctx.rect(0,0,W/2,H)); break;
@@ -153,16 +164,17 @@ function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h), lut=LUTS.
   for(let i=0;i<depth.data.length;i++){ const k=((1-depth.data[i])*255)|0;
     img.data[i*4]=lut[k*3]; img.data[i*4+1]=lut[k*3+1]; img.data[i*4+2]=lut[k*3+2]; img.data[i*4+3]=255; }
   c.getContext('2d').putImageData(img,0,0); ctx.drawImage(c,r.x,r.y,r.w,r.h); }
-function hud(ctx,W,H,span,L){ if(!S.hud) return;
-  ctx.save(); ctx.font='12px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)'; ctx.fillRect(8,8,268,86);
+function hud(ctx,W,H,span,L){ if(!S.hud) return; const u=U();
+  ctx.save(); ctx.font=(12*u)+'px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)';
+  ctx.fillRect(8*u,8*u,268*u,86*u);
   ctx.fillStyle='#efe9ff'; const T=runtime.temps;
-  ctx.fillText(`MODE ${S.mode.toUpperCase()} · SRC ${runtime.thSrc||'—'} · ${runtime.net}`,16,26);
-  if(T) ctx.fillText(`Max ${fmtT(T.mx)}  Min ${fmtT(T.mn)}  Moy ${fmtT(T.avg)}`,16,44);
-  ctx.fillText(`Émiss ${S.emissivity}  Palette ${S.palette}  ×${view.z.toFixed(1)}`,16,62);
-  ctx.fillText(new Date().toLocaleString('fr-FR'),16,80); ctx.restore();
-  if(S.hist) drawHist(ctx,70,H-96,150,72);
-  if(S.legend&&span){ const lut=LUTS[S.palette], x=W-34, y0=120, hh=H-260;
+  ctx.fillText(`MODE ${S.mode.toUpperCase()} · SRC ${runtime.thSrc||'—'} · ${runtime.net}`,16*u,26*u);
+  if(T) ctx.fillText(`Max ${fmtT(T.mx)}  Min ${fmtT(T.mn)}  Moy ${fmtT(T.avg)}`,16*u,44*u);
+  ctx.fillText(`Émiss ${S.emissivity}  Palette ${S.palette}  ×${view.z.toFixed(1)}`,16*u,62*u);
+  ctx.fillText(new Date().toLocaleString('fr-FR'),16*u,80*u); ctx.restore();
+  if(S.hist) drawHist(ctx,70*u,H-96*u,150*u,72*u);
+  if(S.legend&&span){ const lut=LUTS[S.palette], x=W-34*u, y0=120*u, hh=H-260*u;
     for(let i=0;i<hh;i++){ const k=255-((i/hh)*255|0);
-      ctx.fillStyle=`rgb(${lut[k*3]},${lut[k*3+1]},${lut[k*3+2]})`; ctx.fillRect(x,y0+i,18,1); }
-    ctx.fillStyle='#fff'; ctx.font='11px system-ui';
-    for(let i=0;i<=4;i++) ctx.fillText(fmtT(span.mx-(span.mx-span.mn)*i/4), x-52, y0+hh*i/4+4); } }
+      ctx.fillStyle=`rgb(${lut[k*3]},${lut[k*3+1]},${lut[k*3+2]})`; ctx.fillRect(x,y0+i,18*u,1); }
+    ctx.fillStyle='#fff'; ctx.font=(11*u)+'px system-ui';
+    for(let i=0;i<=4;i++) ctx.fillText(fmtT(span.mx-(span.mx-span.mn)*i/4), x-52*u, y0+hh*i/4+4*u); } }
