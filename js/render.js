@@ -2,7 +2,7 @@ import { S, view, runtime } from './state.js';
 import { LUTS } from './palettes.js';
 const tc=document.createElement('canvas'), tg=tc.getContext('2d');
 export const fmtT = v => (S.unit==='F'? v*9/5+32 : v).toFixed(1)+'°'+S.unit;
-const U = ()=> runtime.px||2;                     /* v3.5 : unité = densité de pixels */
+const U = ()=> runtime.px||2;
 const cover=(W,H,sw,sh)=>{ const r=Math.max(W/sw,H/sh), w=sw*r, h=sh*r; return {x:(W-w)/2,y:(H-h)/2,w,h}; };
 
 function thermalRect(f, base, A){
@@ -116,6 +116,13 @@ function demoWatermark(ctx,W,H){ const u=U();
     ctx.save(); ctx.font='bold '+(13*u)+'px system-ui'; ctx.textAlign='center';
     ctx.fillStyle='rgba(255,255,255,.75)';
     ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)', W/2, H-14*u); ctx.restore(); } }
+function noSource(ctx,W,H){ const u=U();
+  ctx.save(); ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.8)';
+  ctx.font='bold '+(15*u)+'px system-ui';
+  ctx.fillText('Aucune source active', W/2, H/2-10*u);
+  ctx.font=(12*u)+'px system-ui';
+  ctx.fillText('🔌 → UVC / Démo · ou autorisez la caméra (cadenas URL)', W/2, H/2+12*u);
+  ctx.restore(); }
 
 export function renderScene(ctx,W,H,L,o={}){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
@@ -124,10 +131,11 @@ export function renderScene(ctx,W,H,L,o={}){
   const hasTH=!!L.th, hasD=!!L.depth;
   const A=S.align; let span=null, tr=null;
   const rgbBase = hasRGB ? cover(W,H,L.rgb.videoWidth||L.rgb.width, L.rgb.videoHeight||L.rgb.height) : null;
-  if(hasRGB){ ctx.save();
+  if(hasRGB){ try{ ctx.save();
     if(S.night) ctx.filter='brightness(2.1) contrast(1.15) saturate(1.1)';
     ctx.drawImage(L.rgb,rgbBase.x,rgbBase.y,rgbBase.w,rgbBase.h); ctx.restore(); }
-  if(hasTH){
+  catch(e){ runtime.lastRenderErr='RGB: '+e.message; } }
+  if(hasTH){ try{
     const msx=(S.fusionMode==='msx'&&hasRGB&&!L.th.color)? S.expert.detailTransfer : 0;
     span=thermalImageData(L.th, hasRGB?L.rgb:null, msx);
     const base = rgbBase || {x:0,y:0,w:W,h:H};
@@ -146,17 +154,21 @@ export function renderScene(ctx,W,H,L,o={}){
       case 'outline':drawT(0.8); break; }
     if(S.isoOn) isoAlarm(ctx,L.th,tr);
     spots(ctx,L.th,tr);
-  } else if(!hasRGB && hasD) depthView(ctx,W,H,L.depth);
-  if(hasD && S.meshOn) lidarMesh(ctx, rgbBase||tr||cover(W,H,L.depth.w,L.depth.h), L.depth);
+  }catch(e){ runtime.lastRenderErr='TH: '+e.message; } }
+  else if(!hasRGB && hasD){ try{ depthView(ctx,W,H,L.depth); }catch(e){ runtime.lastRenderErr='DEPTH: '+e.message; } }
+  if(hasD && S.meshOn){ try{ lidarMesh(ctx, rgbBase||tr||cover(W,H,L.depth.w,L.depth.h), L.depth); }catch(e){} }
   if(o.live){ if(runtime.fx.zebra&&hasRGB){ ctx.globalCompositeOperation='screen';
       ctx.drawImage(runtime.fx.zebra,0,0,W,H); ctx.globalCompositeOperation='source-over'; }
     if(runtime.fx.peak&&hasRGB){ ctx.globalCompositeOperation='lighten';
       ctx.drawImage(runtime.fx.peak,0,0,W,H); ctx.globalCompositeOperation='source-over'; } }
   ctx.restore();
-  if(o.live&&S.expert.grid) grid(ctx,W,H);
-  if(o.live&&S.expert.horizon) horizon(ctx,W,H);
-  hud(ctx,W,H,span,L);
-  if(o.live){ paraGauge(ctx,W,H); flashOverlay(ctx,W,H); demoWatermark(ctx,W,H); }
+  if(!hasRGB&&!hasTH&&!hasD) noSource(ctx,W,H);
+  try{
+    if(o.live&&S.expert.grid) grid(ctx,W,H);
+    if(o.live&&S.expert.horizon) horizon(ctx,W,H);
+    if(S.hud) hud(ctx,W,H,span,L);
+    if(o.live){ paraGauge(ctx,W,H); flashOverlay(ctx,W,H); demoWatermark(ctx,W,H); }
+  }catch(e){ runtime.lastRenderErr='HUD: '+e.message; }
 }
 function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h), lut=LUTS.ghost;
   const img=ctx.createImageData(depth.w,depth.h), c=document.createElement('canvas');
@@ -164,7 +176,7 @@ function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h), lut=LUTS.
   for(let i=0;i<depth.data.length;i++){ const k=((1-depth.data[i])*255)|0;
     img.data[i*4]=lut[k*3]; img.data[i*4+1]=lut[k*3+1]; img.data[i*4+2]=lut[k*3+2]; img.data[i*4+3]=255; }
   c.getContext('2d').putImageData(img,0,0); ctx.drawImage(c,r.x,r.y,r.w,r.h); }
-function hud(ctx,W,H,span,L){ if(!S.hud) return; const u=U();
+function hud(ctx,W,H,span,L){ const u=U();
   ctx.save(); ctx.font=(12*u)+'px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)';
   ctx.fillRect(8*u,8*u,268*u,86*u);
   ctx.fillStyle='#efe9ff'; const T=runtime.temps;
