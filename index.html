@@ -26,6 +26,7 @@
 </nav>
 
 <div id="sens">
+  <span class="badge" id="sSrc">SRC —</span>
   <span class="badge" id="sMag">🧲 — µT</span>
   <span class="badge" id="sTh">🌡 —</span>
   <span class="badge" id="sPara">👁 PARA 0</span>
@@ -39,16 +40,16 @@
   <div id="rec" hidden>● REC <span id="rect">00:00</span></div>
 </main>
 
-<section id="bar">
+<nav id="rail">
   <button id="bSource" title="Capteur NF-582">🔌</button>
-  <button id="bPhoto">📸</button>
-  <button id="bVideo">⏺</button>
-  <button id="bEvp">🎙</button>
-    <button id="bJournal">📓</button>
-  <button id="bGallery">🖼</button>
-  <button id="bAI">🤖</button>
-  <button id="bSet">⚙️</button>
-</section>
+  <button id="bPhoto" title="Photo">📸</button>
+  <button id="bVideo" title="Vidéo">⏺</button>
+  <button id="bEvp" title="EVP micro">🎙</button>
+  <button id="bJournal" title="Journal">📓</button>
+  <button id="bGallery" title="Galerie">🖼</button>
+  <button id="bAI" title="Rapport IA">🤖</button>
+  <button id="bSet" title="Réglages">⚙️</button>
+</nav>
 
 <aside id="panel" class="sheet">
   <h2>Réglages investigation</h2>
@@ -113,6 +114,11 @@
     <label>Seuil °C<input type="number" id="isoAbove"></label>
     <label>Pas isothermes<input type="number" id="isoStep"></label>
     <fieldset><legend>Alignement TH/RGB</legend>
+      <label>Cadration thermique<select id="alignFit">
+        <option value="cover">Remplir l'écran (cover)</option>
+        <option value="contain">Conserver le ratio (contain)</option>
+        <option value="stretch">Étirer (stretch)</option>
+      </select></label>
       <label>X <output></output><input type="range" id="ox" min="-300" max="300"></label>
       <label>Y <output></output><input type="range" id="oy" min="-300" max="300"></label>
       <label>Échelle X <output></output><input type="range" id="sx" min="0.2" max="2" step="0.01"></label>
