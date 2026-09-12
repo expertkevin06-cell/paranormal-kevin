@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Générateur d'icônes — Paranormal by Kevin</title>
+<body style="font-family:system-ui;background:#0b0614;color:#efe9ff;display:grid;place-items:center;height:100vh;margin:0">
+<div style="text-align:center">
+<h1>Icônes PNG</h1>
+<canvas id="c" width="512" height="512" style="width:220px;border-radius:24px"></canvas>
+<p><button id="b192"> icon-192.png</button> <button id="b512">⬇ icon-512.png</button> <button id="bm">⬇ maskable-512.png</button></p>
+<p style="opacity:.7;font-size:12px">Placez les 3 fichiers téléchargés dans le dossier <code>icons/</code> puis commitez.</p>
+</div>
+<script>
+const c=document.getElementById('c'), g=c.getContext('2d');
+function draw(maskable){
+  g.setTransform(1,0,0,1,0,0); g.fillStyle='#0b0614'; g.fillRect(0,0,512,512);
+  const s=maskable?0.8:1, o=(512-512*s)/2;
+  g.save(); g.translate(o,o); g.scale(s,s);
+  g.strokeStyle='#b26bff'; g.lineWidth=14; g.beginPath(); g.arc(256,270,150,0,7); g.stroke();
+  const gr=g.createRadialGradient(256,270,10,256,270,150);
+  gr.addColorStop(0,'#7df9ff'); gr.addColorStop(.55,'#b26bff'); gr.addColorStop(1,'#1a0b2e');
+  g.globalAlpha=.85; g.fillStyle=gr; g.beginPath(); g.arc(256,270,143,0,7); g.fill(); g.globalAlpha=1;
+  g.fillStyle='#0b0614'; g.beginPath(); g.moveTo(160,348); g.lineTo(160,252);
+  g.bezierCurveTo(160,196,200,150,256,150); g.bezierCurveTo(312,150,352,196,352,252); g.lineTo(352,348);
+  [[328,328],[304,348],[280,328],[256,348],[232,328],[208,348],[184,328],[160,348]].forEach(p=>g.lineTo(p[0],p[1]));
+  g.closePath(); g.fill();
+  g.fillStyle='#7df9ff'; g.beginPath(); g.arc(228,252,16,0,7); g.fill();
+  g.beginPath(); g.arc(284,252,16,0,7); g.fill();
+  g.strokeStyle='#7df9ff'; g.lineWidth=6; g.globalAlpha=.8;
+  g.beginPath(); g.moveTo(96,120); g.lineTo(256,72); g.lineTo(416,120); g.stroke();
+  g.beginPath(); g.moveTo(96,120); g.lineTo(96,200); g.moveTo(416,120); g.lineTo(416,200); g.moveTo(256,72); g.lineTo(256,132); g.stroke();
+  g.globalAlpha=1; g.fillStyle='#fff';
+  [[96,120],[256,72],[416,120]].forEach(p=>{ g.beginPath(); g.arc(p[0],p[1],8,0,7); g.fill(); });
+  g.restore();
+}
+function dl(name,mask,size){ draw(mask);
+  const t=document.createElement('canvas'); t.width=t.height=size;
+  t.getContext('2d').drawImage(c,0,0,size,size);
+  t.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); },'image/png'); }
+document.getElementById('b192').onclick=()=>dl('icon-192.png',false,192);
+document.getElementById('b512').onclick=()=>dl('icon-512.png',false,512);
+document.getElementById('bm').onclick=()=>dl('maskable-512.png',true,512);
+draw(false);
+</script>
