@@ -9,10 +9,9 @@ header h1{font-size:15px;margin:0;flex:1}header b{color:var(--acc)}
 #modes button.on{background:var(--acc);color:#12061f;font-weight:800;border-color:var(--acc)}
 #sens{position:absolute;top:96px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:75vw}
 main{position:relative;height:calc(100% - 88px)}
-#cv{width:100%;height:100%;display:block;touch-action:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #spec{position:absolute;right:10px;bottom:10px;width:180px;height:46px;border:1px solid #33204d;border-radius:8px;opacity:.9;z-index:11}
 #rec{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#a00;padding:4px 12px;border-radius:14px;font-weight:700;z-index:11}
-/* ---- rail vertical gauche : toujours visible ---- */
 #rail{position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:30;
   display:flex;flex-direction:column;gap:10px;padding:8px;border-radius:26px;
   background:rgba(23,11,38,.82);backdrop-filter:blur(6px);border:1px solid #33204d}
