@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kevin.paranormal",
+      "sha256_cert_fingerprints": ["COLLER_SHA256_PWABUILDER_ICI"]
+    }
+  }
+]
