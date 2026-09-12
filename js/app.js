@@ -19,7 +19,6 @@ const th=new Thermal(), depth=new DepthEngine(), evp=new EVP();
 let recorder=null, recT0=0, recTimer=null, tick=0, prevGray=null;
 const rgbReady=()=>rgbv.videoWidth>0;
 
-/* ---------- 5 MODES ---------- */
 const MODES={ cam:{rgb:1,th:0,depth:0}, camth:{rgb:1,th:1,depth:0},
   camthlidar:{rgb:1,th:1,depth:1}, lidar:{rgb:0,th:0,depth:1}, th:{rgb:0,th:1,depth:0} };
 function setMode(m){ S.mode=m; const c=MODES[m];
@@ -28,7 +27,6 @@ function setMode(m){ S.mode=m; const c=MODES[m];
   save(); document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m)); }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 
-/* ---------- caméra ---------- */
 async function startRGB(){ try{
   const st=await navigator.mediaDevices.getUserMedia({audio:false,
     video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
@@ -50,15 +48,18 @@ async function buildCamControls(){ const tr=rgbv.srcObject?.getVideoTracks?.()[0
     l.innerHTML='<input type="checkbox"> Torche'; box.appendChild(l);
     l.querySelector('input').onchange=e=>tr.applyConstraints?.({advanced:[{torch:e.target.checked}]}).catch(()=>{}); } }
 
-/* ---------- canvas protégé ---------- */
 function fit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
   if(r.width<10||r.height<10) return;
   cv.width=Math.round(r.width*d); cv.height=Math.round(r.height*d); }
 addEventListener('resize',fit);
 addEventListener('orientationchange',()=>setTimeout(fit,150));
+/* v3.4 : auto-réparation si le canvas prend une taille dégénérée */
+function selfFit(){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
+  const W=Math.round(r.width*d), H=Math.round(r.height*d);
+  if(W>50&&H>50&&(Math.abs(cv.width-W)>4||Math.abs(cv.height-H)>4)){ cv.width=W; cv.height=H; } }
 
-/* ---------- boucle ---------- */
 function loop(){ requestAnimationFrame(loop); tick++; if(!cv.width) fit();
+  if(tick%60===0) selfFit();
   const q=effQuality();
   if(S.layers.depth && depth.connected && rgbReady() && tick%Math.max(2,Math.round(30/q.dfps))===0)
     depth.estimate(rgbv).then(d=>{ runtime.depth=d; nearFrac(d); }).catch(()=>{});
@@ -95,7 +96,6 @@ function drawBoxes(){ const sx=cv.width/rgbv.videoWidth, sy=cv.height/rgbv.video
     ctx.fillText(pres?`PRÉSENCE ? ${(b.score*100)|0}%`:`${b.label} ${(b.score*100)|0}%`,b.bbox[0]*sx,b.bbox[1]*sy-6); }
   ctx.restore(); }
 
-/* ---------- anomalies ---------- */
 function nearFrac(d){ let n=0; for(let i=0;i<d.data.length;i++) if(d.data[i]<0.25) n++;
   runtime.near=n/d.data.length; }
 const baselineMean=k=>{ const b=Anom.base[k]; if(!b||b.length<30) return null;
@@ -138,7 +138,6 @@ async function fire(type,severity,detail,extra={}){
 function makeSnap(){ try{ const c=document.createElement('canvas'); const w=320, h=Math.round(320*cv.height/cv.width);
   c.width=w; c.height=h; c.getContext('2d').drawImage(cv,0,0,w,h); return c.toDataURL('image/jpeg',0.6); }catch{ return null; } }
 
-/* ---------- zoom / pan ---------- */
 let pts=new Map(), d0=0, z0=1;
 cv.addEventListener('pointerdown',e=>{ pts.set(e.pointerId,[e.clientX,e.clientY]);
   if(pts.size===2){ const [a,b]=[...pts.values()]; d0=Math.hypot(a[0]-b[0],a[1]-b[1]); z0=view.z; } });
@@ -150,7 +149,6 @@ const up=e=>{ pts.delete(e.pointerId); if(view.z===1){view.x=0;view.y=0;} };
 cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
 cv.addEventListener('dblclick',()=>{ view.z=1; view.x=0; view.y=0; });
 
-/* ---------- réseau + capteurs ---------- */
 initNet();
 onNet(n=>{ $('#net').textContent=n.label+(n.online?'':' — offline actif');
   if(n.online && S.net.sync) flushQueue().catch(()=>{});
@@ -158,7 +156,6 @@ onNet(n=>{ $('#net').textContent=n.label+(n.online?'':' — offline actif');
 initSensors(); initMotion();
 addEventListener('deviceorientation',e=>{ runtime.tilt={beta:e.beta||0,gamma:e.gamma||0}; });
 
-/* ---------- bindings ---------- */
 function bind(id,get,set){ const el=$('#'+id); if(!el) return; const t=el.type;
   const paint=v=>{ if(t==='checkbox') el.checked=v; else el.value=v;
     el.closest('label')?.querySelector('output')&&(el.closest('label').querySelector('output').textContent=v); };
@@ -190,13 +187,15 @@ bind('llmProvider',()=>S.llm.provider,v=>S.llm.provider=v); bind('llmKey',()=>S.
 bind('photoFormat',()=>S.photo.format,v=>S.photo.format=v);
 bind('videoFps',()=>S.video.fps,v=>S.video.fps=v); bind('videoBitrate',()=>S.video.bitrate,v=>S.video.bitrate=v);
 bind('mic',()=>S.video.mic,v=>S.video.mic=v);
+/* v3.4 : flux UVC déjà coloré + plage °C réaliste automatique */
+bind('colorUVC',()=>!!S.usb.colorUVC,v=>{ S.usb.colorUVC=v;
+  if(v){ S.Tmin=10; S.Tmax=60; } });
 ['vid','pid','magic','endian','fmt'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=v));
 ['iface','epIn','hdr','scale','offset'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=+v));
 bind('uw',()=>S.usb.w,v=>S.usb.w=v); bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
 $('#bHD').onclick=async()=>{ toast('Téléchargement modèle HD…'); await depth.prefetchHD(); toast('Modèle HD caché offline.'); };
 
-/* ---------- source thermique ---------- */
 $('#bSource').onclick=()=>$('#srcDlg').showModal();
 $('#sClose').onclick=()=>$('#srcDlg').close();
 $('#sUvc').onclick=async()=>{ $('#srcDlg').close();
@@ -213,7 +212,6 @@ $('#sUsb').onclick=async()=>{ $('#srcDlg').close();
 $('#sDemo').onclick=()=>{ $('#srcDlg').close(); th.startDemo(); S.layers.th=true; th.setPaused(false); toast('Démo active (cold spots simulés)'); };
 $('#sStop').onclick=async()=>{ await th.stop(); $('#srcDlg').close(); toast('Capteur déconnecté'); };
 
-/* ---------- photo / vidéo / EVP / journal / galerie / IA ---------- */
 $('#bPhoto').onclick=async()=>{ if(runtime.processing) return; flash();
   const q=effQuality();
   if(S.layers.rgb && rgbReady() && q.stack>1){
@@ -265,14 +263,12 @@ $('#bAI').onclick=async()=>{ toast("Analyse d'investigation…"); const r=await 
 $('#bSet').onclick=()=>$('#panel').classList.add('open');
 $('#bClose').onclick=()=>$('#panel').classList.remove('open');
 
-/* ---------- GPS, install, SW ---------- */
 if(navigator.geolocation) navigator.geolocation.watchPosition(p=>runtime.gps=p.coords,()=>{},{enableHighAccuracy:true});
 let ip; addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); ip=e; $('#btnInstall').hidden=false; });
 $('#btnInstall').onclick=()=>ip?.prompt();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 navigator.storage?.persist?.();
 
-/* ---------- utilitaires ---------- */
 function flash(){ const f=document.createElement('div');
   f.style.cssText='position:fixed;inset:0;background:#fff;z-index:99;opacity:.9;transition:.3s';
   document.body.appendChild(f); setTimeout(()=>f.style.opacity=0,30); setTimeout(()=>f.remove(),350); }
@@ -282,7 +278,6 @@ let tt; function toast(m){ let el=$('#toast');
     document.body.appendChild(el); }
   el.textContent=m; el.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>el.style.display='none',3000); }
 
-/* ---------- démarrage ---------- */
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode') && MODES[qp.get('mode')]) setMode(qp.get('mode'));
 else setMode(S.mode||'camthlidar');
