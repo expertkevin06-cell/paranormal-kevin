@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="err" hidden></div>
 <header>
   <span id="net" class="badge">—</span>
   <h1>Paranormal <b>by Kevin</b></h1>
@@ -26,7 +27,7 @@
 </nav>
 
 <div id="sens">
-  <span class="badge" id="sSrc">SRC —</span>
+  <span class="badge" id="sSrc" title="Autodiagnostic">SRC —</span>
   <span class="badge" id="sMag">🧲 — µT</span>
   <span class="badge" id="sTh">🌡 —</span>
   <span class="badge" id="sPara">👁 PARA 0</span>
@@ -167,6 +168,12 @@
   <h2>📓 Journal des événements</h2>
   <div id="jlist"></div>
   <button id="bJClose" class="primary">Fermer</button>
+</aside>
+
+<aside id="diag" class="sheet">
+  <h2>🩺 Autodiagnostic</h2>
+  <div id="dlist" class="dlist"></div>
+  <button id="bDClose" class="primary">Fermer</button>
 </aside>
 
 <dialog id="srcDlg">
