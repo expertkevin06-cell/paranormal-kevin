@@ -1,0 +1,28 @@
+{
+  "name": "Paranormal by Kevin — Thermique · LiDAR · EVP",
+  "short_name": "Paranormal K",
+  "id": "/",
+  "start_url": "./index.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen","standalone"],
+  "orientation": "any",
+  "background_color": "#0b0614",
+  "theme_color": "#1a0b2e",
+  "lang": "fr",
+  "categories": ["utilities","photo","lifestyle"],
+  "description": "Investigation paranormale : caméra IA + thermique NOYAFA NF-582 + LiDAR + EVP, journal d'anomalies, 100% hors ligne.",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/shot-1.png", "sizes": "2000x1125", "type": "image/png", "form_factor": "wide", "label": "Fusion CAM+TH+LiDAR avec score PARA" }
+  ],
+  "shortcuts": [
+    { "name": "Session FULL", "url": "./index.html?mode=camthlidar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Journal", "url": "./index.html?journal=1", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
