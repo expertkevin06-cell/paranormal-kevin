@@ -1,4 +1,4 @@
-const V='pkv4-1';
+const V='pkv5-0';
 const PRECACHE=['./','./index.html','./offline.html','./styles.css','./manifest.webmanifest',
  './js/core.js','./js/thermal.js','./js/vision.js','./js/expert.js','./js/render.js','./js/capture.js','./js/app.js'];
 const CDN=['cdn.jsdelivr.net','unpkg.com','huggingface.co'];
