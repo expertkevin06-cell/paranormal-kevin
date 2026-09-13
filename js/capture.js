@@ -34,7 +34,6 @@ export function startVideo(canvas){
     m.getAudioTracks().forEach(t=>stream.addTrack(t)); return go(); }) : Promise.resolve(go()); }
 export const listMedia=()=>all('media');
 export const delMedia=id=>del('media',id);
-/* ---------- RAPPORT ---------- */
 export async function makeReport(){
   const T=runtime.temps;
   const data={date:new Date().toISOString(),mode:S.mode,palette:S.palette,emissivity:S.emissivity,
