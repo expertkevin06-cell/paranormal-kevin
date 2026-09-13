@@ -1047,7 +1047,7 @@ if(qp.get('set'))setTimeout(()=>$('#panel').classList.add('open'),600);
 if(qp.get('diag'))setTimeout(()=>$('#sSrc').onclick(),800);
 fit();loop();
 (async()=>{
- await boot('Service Worker',()=>('serviceWorker' in navigator)?navigator.serviceWorker.register('./sw.js').then(r=>{r.update?.();return r;}):null);
+ await boot('Service Worker',()=>('serviceWorker' in navigator)?navigator.serviceWorker.register('./sw.js').then(r=>{r.update?.()?.catch?.(()=>{});return r;}):null);
  await boot('Stockage',()=>navigator.storage?.persist?.());
  await boot('Base locale',()=>all('events'));
  await boot('Caméra arrière',()=>startRGB().catch(e=>{if(!th.running)th.startDemo();if(S.mode==='cam')setMode('camth');throw e;}));
