@@ -18,9 +18,6 @@
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
-  "screenshots": [
-    { "src": "screenshots/shot-1.png", "sizes": "2000x1125", "type": "image/png", "form_factor": "wide", "label": "Fusion CAM+TH+LiDAR avec score PARA" }
-  ],
   "shortcuts": [
     { "name": "Session FULL", "url": "./index.html?mode=camthlidar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Journal", "url": "./index.html?journal=1", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
