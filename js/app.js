@@ -291,7 +291,7 @@ $('#bAI').onclick=async()=>{ toast("Analyse d'investigation…");
 $('#bSet').onclick=()=>$('#panel').classList.add('open');
 $('#bClose').onclick=()=>$('#panel').classList.remove('open');
 
-/* ---------- autodiagnostic (badge SRC ou ?diag=1) ---------- */
+/* ---------- autodiagnostic ---------- */
 $('#sSrc').onclick=()=>{ const cam=rgbReady()?'✅ caméra '+rgbv.videoWidth+'×'+rgbv.videoHeight:'❌ caméra inactive';
   const src='Source : '+(th.running?(th.mode==='demo'?'démo':th.info):'aucune');
   const sw=('serviceWorker' in navigator&&navigator.serviceWorker.controller)?'✅ SW actif':'⚠ SW absent (rechargez)';
@@ -324,11 +324,10 @@ if(qp.get('journal')) setTimeout(()=>$('#bJournal').onclick(),800);
 if(qp.get('set')) setTimeout(()=>$('#panel').classList.add('open'),600);
 if(qp.get('diag')) setTimeout(()=>$('#sSrc').onclick(),800);
 fit(); loop();
-(async()=>{ 
+(async()=>{
   await boot('Service Worker',()=>('serviceWorker' in navigator)?navigator.serviceWorker.register('./sw.js'):null);
   await boot('Stockage',()=>navigator.storage?.persist?.());
   await boot('Base locale',()=>dbAll('events'));
-  await boot('Capteurs',()=>{ /* déjà initialisés plus haut */ });
   await boot('Caméra arrière',()=>startRGB()).catch(()=>{ if(!th.running) th.startDemo(); if(S.mode==='cam') setMode('camth'); });
   await boot('Source thermique',()=>{ if(!th.running) th.startDemo(); });
 })();
