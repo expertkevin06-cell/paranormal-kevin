@@ -1,7 +1,6 @@
 {
   "name": "Paranormal by Kevin — Thermique · LiDAR · EVP",
   "short_name": "Paranormal K",
-  "id": "/",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",
