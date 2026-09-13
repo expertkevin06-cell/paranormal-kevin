@@ -88,4 +88,88 @@ function grid(ctx,W,H){ ctx.save(); ctx.strokeStyle='rgba(255,255,255,.22)'; ctx
     ctx.beginPath();ctx.moveTo(0,H*i/3);ctx.lineTo(W,H*i/3);ctx.stroke(); } ctx.restore(); }
 function horizon(ctx,W,H){ const u=U(),t=runtime.tilt,roll=(t.gamma||0)*Math.PI/180;
   ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(-roll);
-  ctx.strokeStyle='
+  ctx.strokeStyle='rgba(178,107,255,.55)'; ctx.lineWidth=u;
+  ctx.beginPath();ctx.moveTo(-W,0);ctx.lineTo(W,0);ctx.stroke();
+  ctx.beginPath();ctx.arc(0,Math.max(-40,Math.min(40,(t.beta||0)-45))*1.5*u,6*u,0,7);ctx.stroke(); ctx.restore(); }
+function paraGauge(ctx,W,H){ const u=U(),x=W-58*u,y=64*u,r=34*u,sc=runtime.para||0;
+  ctx.save(); ctx.lineWidth=7*u; ctx.strokeStyle='rgba(255,255,255,.12)';
+  ctx.beginPath();ctx.arc(x,y,r,Math.PI*0.75,Math.PI*2.25);ctx.stroke();
+  const col=sc>70?'#ff3b30':sc>40?'#ffb020':'#7df9ff';
+  ctx.strokeStyle=col;ctx.beginPath();ctx.arc(x,y,r,Math.PI*0.75,Math.PI*0.75+(sc/100)*Math.PI*1.5);ctx.stroke();
+  ctx.fillStyle=col;ctx.font='bold '+(16*u)+'px system-ui';ctx.textAlign='center';
+  ctx.fillText(sc|0,x,y+5*u);ctx.font=(9*u)+'px system-ui';ctx.fillText('PARA',x,y+18*u); ctx.restore(); }
+function flashOverlay(ctx,W,H){ if(Date.now()<runtime.flash){
+    const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);
+    g.addColorStop(0,'rgba(255,0,0,0)');g.addColorStop(1,'rgba(255,0,0,.45)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H); } }
+function demoWatermark(ctx,W,H){ const u=U();
+  if((runtime.thSrc||'').indexOf('DÉMO')===0){ ctx.save();
+    ctx.font='bold '+(13*u)+'px system-ui';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';
+    ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)',W/2,H-14*u); ctx.restore(); } }
+function noSource(ctx,W,H){ const u=U(); ctx.save(); ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold '+(15*u)+'px system-ui';
+  ctx.fillText('Aucune source active',W/2,H/2-10*u);
+  ctx.font=(12*u)+'px system-ui';
+  ctx.fillText('🔌 → UVC / Démo · ou autorisez la caméra (cadenas URL)',W/2,H/2+12*u); ctx.restore(); }
+function depthView(ctx,W,H,depth){ const r=cover(W,H,depth.w,depth.h),lut=LUTS.ghost;
+  const img=ctx.createImageData(depth.w,depth.h),c=document.createElement('canvas');
+  c.width=depth.w;c.height=depth.h;
+  for(let i=0;i<depth.data.length;i++){ const k=((1-depth.data[i])*255)|0;
+    img.data[i*4]=lut[k*3];img.data[i*4+1]=lut[k*3+1];img.data[i*4+2]=lut[k*3+2];img.data[i*4+3]=255; }
+  c.getContext('2d').putImageData(img,0,0); ctx.drawImage(c,r.x,r.y,r.w,r.h); }
+function hud(ctx,W,H,span){ const u=U(); ctx.save();
+  ctx.font=(12*u)+'px system-ui'; ctx.fillStyle='rgba(10,4,20,.68)'; ctx.fillRect(8*u,8*u,268*u,86*u);
+  ctx.fillStyle='#efe9ff'; const T=runtime.temps;
+  ctx.fillText(`MODE ${S.mode.toUpperCase()} · SRC ${runtime.thSrc||'—'} · ${runtime.net}`,16*u,26*u);
+  if(T) ctx.fillText(`Max ${fmtT(T.mx)}  Min ${fmtT(T.mn)}  Moy ${fmtT(T.avg)}`,16*u,44*u);
+  ctx.fillText(`Émiss ${S.emissivity}  Palette ${S.palette}  ×${view.z.toFixed(1)}`,16*u,62*u);
+  ctx.fillText(new Date().toLocaleString('fr-FR'),16*u,80*u); ctx.restore();
+  if(S.hist) drawHist(ctx,70*u,H-96*u,150*u,72*u);
+  if(S.legend&&span){ const lut=LUTS[S.palette],x=W-34*u,y0=120*u,hh=H-260*u;
+    for(let i=0;i<hh;i++){ const k=255-((i/hh)*255|0);
+      ctx.fillStyle=`rgb(${lut[k*3]},${lut[k*3+1]},${lut[k*3+2]})`;ctx.fillRect(x,y0+i,18*u,1); }
+    ctx.fillStyle='#fff';ctx.font=(11*u)+'px system-ui';
+    for(let i=0;i<=4;i++) ctx.fillText(fmtT(span.mx-(span.mx-span.mn)*i/4),x-52*u,y0+hh*i/4+4*u); } }
+export function renderScene(ctx,W,H,L,o={}){
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.translate(W/2,H/2); ctx.scale(view.z,view.z); ctx.translate(-W/2+view.x,-H/2+view.y);
+  const hasRGB=!!L.rgb&&(L.rgb.videoWidth||L.rgb.width||0)>0&&(L.rgb.readyState===undefined||L.rgb.readyState>=2);
+  const hasTH=!!L.th,hasD=!!L.depth,A=S.align; let span=null,tr=null;
+  const rgbBase=hasRGB?cover(W,H,L.rgb.videoWidth||L.rgb.width,L.rgb.videoHeight||L.rgb.height):null;
+  if(hasRGB){ try{ ctx.save();
+      if(S.night) ctx.filter='brightness(2.1) contrast(1.15) saturate(1.1)';
+      ctx.drawImage(L.rgb,rgbBase.x,rgbBase.y,rgbBase.w,rgbBase.h); ctx.restore(); }
+    catch(e){ runtime.lastRenderErr='RGB: '+e.message; } }
+  if(hasTH){ try{
+      const msx=(S.fusionMode==='msx'&&hasRGB&&!L.th.color)?S.expert.detailTransfer:0;
+      span=thermalImageData(L.th,hasRGB?L.rgb:null,msx);
+      tr=thermalRect(L.th,rgbBase||{x:0,y:0,w:W,h:H},A);
+      const drawT=(al,clip)=>{ ctx.save(); if(clip)clip(); ctx.globalAlpha=al;
+        if(A.mirror){ctx.translate(tr.x+tr.w,tr.y);ctx.scale(-1,1);ctx.drawImage(tc,0,0,tr.w,tr.h);}
+        else ctx.drawImage(tc,tr.x,tr.y,tr.w,tr.h); ctx.restore(); };
+      if(!hasRGB) drawT(1);
+      else switch(S.fusionMode){
+        case 'pip':drawT(1,()=>{const s=Math.min(W,H)*0.3;ctx.rect(W-s-24*U(),H-s-120*U(),s,s);});break;
+        case 'blend':drawT(0.55);break;
+        case 'splith':drawT(1,()=>ctx.rect(0,0,W,H/2));break;
+        case 'splitv':drawT(1,()=>ctx.rect(0,0,W/2,H));break;
+        case 'msx':drawT(0.85);break;
+        case 'contour':drawT(1);isoContours(ctx,L.th,tr);break;
+        case 'outline':drawT(0.8);break; }
+      if(S.isoOn) isoAlarm(ctx,L.th,tr);
+      spots(ctx,L.th,tr);
+    }catch(e){ runtime.lastRenderErr='TH: '+e.message; } }
+  else if(!hasRGB&&hasD){ try{ depthView(ctx,W,H,L.depth); }catch(e){ runtime.lastRenderErr='DEPTH: '+e.message; } }
+  if(hasD&&S.meshOn){ try{ lidarMesh(ctx,rgbBase||tr||cover(W,H,L.depth.w,L.depth.h),L.depth); }catch(e){} }
+  if(o.live){ if(runtime.fx.zebra&&hasRGB){ctx.globalCompositeOperation='screen';
+      ctx.drawImage(runtime.fx.zebra,0,0,W,H);ctx.globalCompositeOperation='source-over';}
+    if(runtime.fx.peak&&hasRGB){ctx.globalCompositeOperation='lighten';
+      ctx.drawImage(runtime.fx.peak,0,0,W,H);ctx.globalCompositeOperation='source-over';} }
+  ctx.restore();
+  if(!hasRGB&&!hasTH&&!hasD) noSource(ctx,W,H);
+  try{ if(o.live&&S.expert.grid) grid(ctx,W,H);
+    if(o.live&&S.expert.horizon) horizon(ctx,W,H);
+    if(S.hud) hud(ctx,W,H,span);
+    if(o.live){ paraGauge(ctx,W,H); flashOverlay(ctx,W,H); demoWatermark(ctx,W,H); } }
+  catch(e){ runtime.lastRenderErr='HUD: '+e.message; }
+}
