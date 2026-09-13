@@ -15,9 +15,9 @@ export const DEFAULTS={
   align:{sx:1,sy:1,ox:0,oy:0,mirror:false,fit:'cover'},
   usb:{vid:'',pid:'',iface:0,epIn:130,fmt:'u16temp',w:256,h:192,hdr:0,magic:'',endian:'le',scale:0.01,offset:0,pkt:16384,colorUVC:false}
 };
-export const S=(()=>{ try{ return Object.assign(structuredClone(DEFAULTS),JSON.parse(localStorage.getItem('pk4.s')||'{}')); }
+export const S=(()=>{ try{ return Object.assign(structuredClone(DEFAULTS),JSON.parse(localStorage.getItem('pk5.s')||'{}')); }
   catch{ return structuredClone(DEFAULTS); } })();
-export const save=()=>localStorage.setItem('pk4.s',JSON.stringify(S));
+export const save=()=>localStorage.setItem('pk5.s',JSON.stringify(S));
 export const view={z:1,x:0,y:0};
 export const runtime={online:navigator.onLine,net:'—',tier:'medium',rgb:null,depth:null,boxes:[],temps:null,
   hist:null,tilt:{beta:0,gamma:0},gps:null,fx:{zebra:null,peak:null},processing:false,flash:0,motion:0,
@@ -25,7 +25,7 @@ export const runtime={online:navigator.onLine,net:'—',tier:'medium',rgb:null,d
 
 /* ---------- BASE LOCALE ---------- */
 let p;
-export const db=()=>p??=new Promise((res,rej)=>{ const r=indexedDB.open('paranormal4',1);
+export const db=()=>p??=new Promise((res,rej)=>{ const r=indexedDB.open('paranormal5',1);
   r.onupgradeneeded=()=>{ const d=r.result;
     ['media','events','reports','queue'].forEach(s=>{ if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath:'id'}); }); };
   r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
