@@ -1,9 +1,13 @@
-const V='pkv5-0';
-const PRECACHE=['./','./index.html','./offline.html','./styles.css','./manifest.webmanifest',
- './js/core.js','./js/thermal.js','./js/vision.js','./js/expert.js','./js/render.js','./js/capture.js','./js/app.js'];
+const V='pkv6-1';
+const PRECACHE=['./','./index.html','./offline.html','./manifest.webmanifest'];
+const ICONS=['./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png'];
 const CDN=['cdn.jsdelivr.net','unpkg.com','huggingface.co'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(V).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('install',e=>e.waitUntil(caches.open(V).then(c=>
+  Promise.all(PRECACHE.map(u=>c.add(u).catch(()=>{})))
+  .then(()=>Promise.all(ICONS.map(u=>c.add(u).catch(()=>{})))))
+  .then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>
+  Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{ const url=new URL(e.request.url);
   if(e.request.mode==='navigate'){ e.respondWith(fetch(e.request).then(r=>{ const cp=r.clone();
       caches.open(V).then(c=>c.put('./index.html',cp)); return r; })
