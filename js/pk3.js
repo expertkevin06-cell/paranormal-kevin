@@ -148,10 +148,11 @@ function loop(){requestAnimationFrame(loop);tick++;if(!cv.width)fit();
  if(tick-lastRenderOK>180)banner('Rendu bloqué — tapez le badge SRC (diagnostic)');
  if(runtime.boxes.length&&S.layers.rgb&&rgbReady())drawBoxes();
  if(tick%30===0){
-  runtime.thSrc=th.running?(th.mode==='demo'?'DÉMO':(th.visual?'VISUEL UVC '+(th.info||''):((th.info||th.mode).toUpperCase()))):'—';
+  runtime.thKind=th.running?(th.mode==='demo'?'demo':(th.mode==='usb'?'radio':(th.visual?'visuel':'palette'))):'none';
+  runtime.thSrc=th.running?(th.mode==='demo'?'DÉMO':(th.mode==='usb'?(th.info||'USB'):((th.visual?'VISUEL UVC':'UVC THERMIQUE')+' '+(th.info||'')))):'—';
   $('#sSrc').textContent='SRC '+runtime.thSrc;
   if(th.visual&&!runtime._visNotified){runtime._visNotified=true;
-   toast('Le flux UVC est la caméra VISUELLE du NF-582. Pour le THERMIQUE réel : 🔌 → 🔬 Explorateur USB.');}
+   toast('Source UVC = caméra VISUELLE du NF-582. Thermique réel : 🔌 → choisissez une AUTRE caméra de la liste, ou 🔬 Explorateur.');}
   if(!th.visual)runtime._visNotified=false;
   $('#sPara').textContent='👁 PARA '+(runtime.para|0);
   $('#sTh').textContent=runtime.temps?'🌡 Δ'+(runtime.temps.mx-runtime.temps.mn).toFixed(1)+'°':'🌡 —';
@@ -265,17 +266,27 @@ bind('uw',()=>S.usb.w,v=>S.usb.w=v);bind('uh',()=>S.usb.h,v=>S.usb.h=v);
 $('#palette').innerHTML=PALETTE_NAMES.map(p=>'<option value="'+p+'">'+p+'</option>').join('');
 $('#bHD').onclick=()=>{toast('Téléchargement modèle HD…');
  depth.prefetchHD().then(()=>toast('Modèle HD caché offline.')).catch(()=>toast('Échec préfetch HD'));};
-$('#bSource').onclick=()=>$('#srcDlg').showModal();
-$('#sClose').onclick=()=>$('#srcDlg').close();
-$('#sUvc').onclick=async()=>{$('#srcDlg').close();
- try{const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
-  const ext=devs.find(d=>/usb|uvc|external|nf-?582|noyafa/i.test(d.label))||devs[devs.length-1];
-  await th.connectUVC(ext?ext.deviceId:undefined);
+/* ---- v10 : LISTE des caméras USB dans le dialog source ---- */
+function connectSource(d){
+ return th.connectUVC(d&&d.deviceId?d.deviceId:undefined).then(()=>{
   if(S.mode==='cam')setMode('camth');else if(S.mode==='lidar')setMode('camthlidar');
   else{S.layers.th=true;th.setPaused(false);}
   if(S.fusionMode==='msx'){S.fusionMode='panel';save();const fm=$('#fusionMode');if(fm)fm.value='panel';}
-  toast('NF-582 connecté : '+th.info+(ext&&ext.label?' ('+ext.label+')':''));}
- catch(e){toast('UVC échec → 🔬 Explorateur ou 🧪 Démo. '+e.message);if(!th.running)th.startDemo();}};
+  toast('Source connectée : '+(d&&d.label?d.label:'caméra USB')+' → regardez le libellé du panneau');});}
+function fillDevList(){
+ const box=$('#devList');box.innerHTML='<p style="font-size:12px;opacity:.7">Recherche des caméras…</p>';
+ navigator.mediaDevices.enumerateDevices().then(ds=>{
+  const vids=ds.filter(d=>d.kind==='videoinput');
+  box.innerHTML='';
+  if(!vids.length){box.innerHTML='<p style="font-size:12px;opacity:.7">Aucune caméra détectée (autorisez ou branchez le capteur).</p>';return;}
+  vids.forEach((d,i)=>{const b=document.createElement('button');
+   b.textContent='📷 '+(d.label||('Caméra USB '+(i+1)));
+   b.onclick=()=>{$('#srcDlg').close();
+    connectSource(d).catch(e=>{toast('Échec UVC : '+e.message);if(!th.running)th.startDemo();});};
+   box.appendChild(b);});
+ }).catch(()=>{box.innerHTML='<p style="font-size:12px;opacity:.7">Enumeration impossible.</p>';});}
+$('#bSource').onclick=()=>{fillDevList();$('#srcDlg').showModal();};
+$('#sClose').onclick=()=>$('#srcDlg').close();
 $('#sProbe').onclick=async()=>{$('#srcDlg').close();
  try{toast('🔬 Exploration USB (choisissez le périphérique NOYAFA)…');
   const res=await th.probeUSB();
@@ -370,7 +381,7 @@ let tt;function toast(m){let el=$('#toast');
  if(!el){el=document.createElement('div');el.id='toast';
   el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#241238;color:#fff;padding:8px 16px;border-radius:20px;z-index:50;max-width:86vw';
   document.body.appendChild(el);}
- el.textContent=m;el.style.display='block';clearTimeout(tt);tt=setTimeout(()=>el.style.display='none',4000);}
+ el.textContent=m;el.style.display='block';clearTimeout(tt);tt=setTimeout(()=>el.style.display='none',4500);}
 const qp=new URLSearchParams(location.search);
 if(qp.get('mode')&&MODES[qp.get('mode')])setMode(qp.get('mode'));else setMode(S.mode||'camthlidar');
 if(qp.get('journal'))setTimeout(()=>$('#bJournal').onclick(),800);
