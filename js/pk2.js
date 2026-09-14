@@ -32,15 +32,25 @@ class Thermal{
     this.visual=(grad>18)||(sat>60);
     runtime.uvcVisual=this.visual;}
    this._push({w:w,h:h,gray:gray,temps:null,ts:Date.now(),ccanvas:cc});},33);}
+ /* v10.1 : découverte AUTO du endpoint IN (bulk puis interrupt) + arrêt propre */
  async connectUSB(){if(!('usb' in navigator))throw new Error('WebUSB indisponible (Chrome Android, HTTPS).');
   await this.stop();
   const vid=parseInt(S.usb.vid,16),pid=parseInt(S.usb.pid,16);
   const filters=(vid&&!isNaN(vid))?[{vendorId:vid,...(pid&&!isNaN(pid)?{productId:pid}:{})}]:[];
   const dev=await navigator.usb.requestDevice({filters});await dev.open();
   if(dev.configuration===null)await dev.selectConfiguration(1);
-  await dev.claimInterface(S.usb.iface|0);
+  let ifaceNo=null,epIn=null;
+  for(const itf of dev.configuration.interfaces)for(const alt of itf.alternates)for(const ep of alt.endpoints)
+   if(ep.direction==='in'&&ep.type==='bulk'){ifaceNo=itf.interfaceNumber;epIn=ep.endpointNumber;}
+  if(ifaceNo===null)for(const itf of dev.configuration.interfaces)for(const alt of itf.alternates)for(const ep of alt.endpoints)
+   if(ep.direction==='in'&&ep.type==='interrupt'){ifaceNo=itf.interfaceNumber;epIn=ep.endpointNumber;}
+  if(ifaceNo===null){try{await dev.close();}catch{}
+   throw new Error('Aucun endpoint brut (bulk/interrupt) : le thermique ne sort pas hors UVC sur ce capteur → utilisez la liste 🔌 ou 🔬');}
+  await dev.claimInterface(ifaceNo);
+  S.usb.iface=ifaceNo;S.usb.epIn=epIn;save();
   this.device=dev;this.mode='usb';this.running=true;this._buf=new Uint8Array(0);
-  this.info='USB '+dev.productName;this._pump();}
+  this.info='USB '+(dev.productName||'')+' ep'+epIn;
+  this._pump();}
  async probeUSB(){if(!('usb' in navigator))throw new Error('WebUSB indisponible (Chrome Android, HTTPS).');
   await this.stop();
   const dev=await navigator.usb.requestDevice({filters:[]});
@@ -85,11 +95,16 @@ class Thermal{
    this._pump();
   }else{try{await dev.close();}catch{}}
   return{report:report,found:found};}
- async _pump(){while(this.running){try{
+ /* v10.1 : max 20 erreurs puis arrêt propre avec message actionnable */
+ async _pump(){let errs=0;
+  while(this.running&&errs<20){try{
    const r=await this.device.transferIn(S.usb.epIn|0,S.usb.pkt||16384);
    if(r.data?.byteLength&&!this.paused)
     this._parse(new Uint8Array(r.data.buffer,r.data.byteOffset,r.data.byteLength));
-  }catch(e){if(this.running){this.info='USB: '+e.message;await sleep(250);}}}}
+  }catch(e){errs++;if(this.running){this.info='USB: '+e.message;await sleep(250);}}}
+  if(this.running&&errs>=20){this.running=false;
+   this.info='USB: flux illisible (protocole propriétaire ?) → liste 🔌 ou 🔬';
+   try{await this.device.close();}catch{}}}
  _cat(a,b){const o=new Uint8Array(a.length+b.length);o.set(a);o.set(b,a.length);return o;}
  _parse(chunk){this._buf=this._cat(this._buf,chunk);
   const U=S.usb,w=U.w||256,h=U.h||192,need=U.fmt==='u8'?w*h:w*h*2;let idx=U.hdr|0;
