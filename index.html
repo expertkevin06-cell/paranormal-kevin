@@ -44,7 +44,7 @@ button.ghost{background:none;border:1px solid var(--acc);color:var(--acc);border
 .jev{border:1px solid #33204d;border-radius:10px;padding:8px;display:flex;gap:8px;align-items:center;background:#120a1e}
 .jev img{width:64px;height:48px;object-fit:cover;border-radius:6px}
 .jev .t{font-size:12px}.jev .sev{color:#ff3b30;font-weight:700}
-dialog{background:var(--panel);color:var(--txt);border:1px solid #33204d;border-radius:14px;width:min(92vw,360px)}
+dialog{background:var(--panel);color:var(--txt);border:1px solid #33204d;border-radius:14px;width:min(92vw,380px)}
 dialog button{display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #33204d;background:#120a1e;color:var(--txt)}
 </style>
 <script>
@@ -64,7 +64,7 @@ setTimeout(function(){var b=document.getElementById('err');if(!b)return;
 <header>
   <span id="net" class="badge">—</span>
   <h1>Paranormal <b>by Kevin</b></h1>
-  <span class="badge">v9</span>
+  <span class="badge">v10</span>
   <button id="btnInstall" class="ghost" hidden>Installer</button>
 </header>
 <nav id="modes">
@@ -190,11 +190,11 @@ setTimeout(function(){var b=document.getElementById('err');if(!b)return;
 <aside id="journal" class="sheet"><h2>📓 Journal</h2><div id="jlist"></div><button id="bJClose" class="primary">Fermer</button></aside>
 <aside id="diag" class="sheet"><h2>🩺 Autodiagnostic</h2><div id="dlist" class="dlist"></div><button id="bDClose" class="primary">Fermer</button></aside>
 <dialog id="srcDlg">
-  <h3>Capteur NF-582</h3>
-  <button class="primary" id="sUvc">📷 Webcam USB (UVC)</button>
-  <button class="primary" id="sProbe">🔬 Explorateur USB (flux thermique)</button>
-  <button class="primary" id="sUsb">🔌 WebUSB vendor</button>
-  <button class="primary" id="sDemo">🧪 Démo</button>
+  <h3>Source thermique NF-582</h3>
+  <div id="devList" class="dlist"></div>
+  <button class="primary" id="sProbe">🔬 Explorateur USB (flux thermique 16 bits)</button>
+  <button class="primary" id="sUsb">🔌 WebUSB vendor (réglages manuels)</button>
+  <button class="primary" id="sDemo">🧪 Démo (simulation)</button>
   <button id="sStop">⏹ Déconnecter</button>
   <button id="sClose">Fermer</button>
 </dialog>
