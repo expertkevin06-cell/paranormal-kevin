@@ -61,7 +61,7 @@ setTimeout(function(){if(!window.__PK.booted){var b=document.getElementById('err
 <header>
   <span id="net" class="badge">—</span>
   <h1>Paranormal <b>by Kevin</b></h1>
-  <span class="badge">v6</span>
+  <span class="badge">v7</span>
   <button id="btnInstall" class="ghost" hidden>Installer</button>
 </header>
 <nav id="modes">
@@ -93,9 +93,11 @@ setTimeout(function(){if(!window.__PK.booted){var b=document.getElementById('err
   <h2>Réglages investigation</h2>
   <div class="grid">
     <label>Mode fusion<select id="fusionMode">
-      <option value="msx">MSX</option><option value="pip">PiP</option><option value="blend">Fondu 55%</option>
-      <option value="splith">Split H</option><option value="splitv">Split V</option>
-      <option value="contour">Isothermes</option><option value="outline">Surimpression</option></select></label>
+      <option value="panel">Panneau capteur (recommandé)</option>
+      <option value="msx">MSX superposé</option><option value="pip">PiP coin</option>
+      <option value="blend">Fondu 55%</option><option value="splith">Split H</option>
+      <option value="splitv">Split V</option><option value="contour">Isothermes</option>
+      <option value="outline">Surimpression</option></select></label>
     <label>Palette<select id="palette"></select></label>
     <label>Unité<select id="unit"><option value="C">°C</option><option value="F">°F</option></select></label>
     <label>Émissivité <output></output><input type="range" id="emissivity" min="0.1" max="1" step="0.01"></label>
@@ -148,7 +150,7 @@ setTimeout(function(){if(!window.__PK.booted){var b=document.getElementById('err
     <label class="chk"><input type="checkbox" id="isoOn"> Alarme isotherme</label>
     <label>Seuil °C<input type="number" id="isoAbove"></label>
     <label>Pas iso<input type="number" id="isoStep"></label>
-    <fieldset><legend>Alignement TH/RGB</legend>
+    <fieldset><legend>Alignement TH/RGB (modes superposés)</legend>
       <label>Cadration<select id="alignFit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="stretch">Stretch</option></select></label>
       <label>X <output></output><input type="range" id="ox" min="-300" max="300"></label>
       <label>Y <output></output><input type="range" id="oy" min="-300" max="300"></label>
@@ -168,7 +170,7 @@ setTimeout(function(){if(!window.__PK.booted){var b=document.getElementById('err
     <label>Mbps<input type="number" id="videoBitrate" min="1" max="40"></label>
     <label class="chk"><input type="checkbox" id="mic"> Micro vidéo</label>
     <fieldset><legend>NF-582 USB-C</legend>
-      <label class="chk"><input type="checkbox" id="colorUVC"> Flux déjà coloré</label>
+      <label class="chk"><input type="checkbox" id="native"> Couleurs natives du capteur</label>
       <label>VID hex<input id="vid"></label><label>PID hex<input id="pid"></label>
       <label>Interface<input type="number" id="iface"></label><label>EpIn<input type="number" id="epIn"></label>
       <label>Format<select id="fmt"><option value="u16temp">16 bits</option><option value="u8">8 bits</option><option value="yuy2">YUY2</option></select></label>
@@ -196,7 +198,7 @@ setTimeout(function(){if(!window.__PK.booted){var b=document.getElementById('err
 window.__PK.booted=true;
 /* ================= ÉTAT ================= */
 const DEFAULTS={
- mode:'camthlidar',layers:{rgb:true,th:true,depth:true},fusionMode:'msx',
+ mode:'camthlidar',layers:{rgb:true,th:true,depth:true},fusionMode:'panel',
  palette:'ironbow',unit:'C',emissivity:0.95,agc:'auto',level:25,span:20,Tmin:-20,Tmax:550,
  hud:true,legend:true,hist:true,crosshair:true,hotspot:true,coldspot:true,
  isoOn:false,isoStep:5,isoAbove:60,meshOn:true,dotStep:14,meshAlpha:0.6,pointSize:1.6,
@@ -209,16 +211,16 @@ const DEFAULTS={
  net:{autoQuality:true,cloudReport:false,prefetchHD:true,sync:true},
  llm:{provider:'none',key:''},
  align:{sx:1,sy:1,ox:0,oy:0,mirror:false,fit:'cover'},
- usb:{vid:'',pid:'',iface:0,epIn:130,fmt:'u16temp',w:256,h:192,hdr:0,magic:'',endian:'le',scale:0.01,offset:0,pkt:16384,colorUVC:false}};
-const S=(()=>{try{return Object.assign(structuredClone(DEFAULTS),JSON.parse(localStorage.getItem('pk6.s')||'{}'));}catch{return structuredClone(DEFAULTS);}})();
-const save=()=>localStorage.setItem('pk6.s',JSON.stringify(S));
+ usb:{vid:'',pid:'',iface:0,epIn:130,fmt:'u16temp',w:256,h:192,hdr:0,magic:'',endian:'le',scale:0.01,offset:0,pkt:16384,native:true}};
+const S=(()=>{try{return Object.assign(structuredClone(DEFAULTS),JSON.parse(localStorage.getItem('pk7.s')||'{}'));}catch{return structuredClone(DEFAULTS);}})();
+const save=()=>localStorage.setItem('pk7.s',JSON.stringify(S));
 const view={z:1,x:0,y:0};
 const runtime={online:navigator.onLine,net:'—',tier:'medium',rgb:null,depth:null,boxes:[],temps:null,
  hist:null,tilt:{beta:0,gamma:0},gps:null,fx:{zebra:null,peak:null},processing:false,flash:0,motion:0,
  near:0,mag:0,para:0,px:2,thSrc:'—',boot:[],lastRenderErr:''};
 /* ================= DB ================= */
 let pdb;
-const db=()=>pdb??=new Promise((res,rej)=>{const r=indexedDB.open('paranormal6',1);
+const db=()=>pdb??=new Promise((res,rej)=>{const r=indexedDB.open('paranormal7',1);
  r.onupgradeneeded=()=>{const d=r.result;['media','events','reports','queue'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id'});});};
  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
 const tx=(s,m)=>db().then(d=>d.transaction(s,m).objectStore(s));
@@ -328,16 +330,17 @@ class Thermal{
    deviceId:deviceId?{exact:deviceId}:undefined,width:{ideal:S.usb.w},height:{ideal:S.usb.h},frameRate:{ideal:30}}});
   v.srcObject=st;await v.play();this.video=v;this.mode='uvc';this.running=true;
   this.info='UVC '+(v.videoWidth||'?')+'×'+(v.videoHeight||'?');this._grabLoop();}
+ /* v7 : copie systématique du flux NATIF (couleurs constructeur préservées) */
  _grabLoop(){const c=document.createElement('canvas'),g=c.getContext('2d',{willReadFrequently:true});
   const cc=document.createElement('canvas'),cg=cc.getContext('2d');
   this._timer=setInterval(()=>{if(!this.running||this.paused||!this.video?.videoWidth)return;
    const w=this.video.videoWidth,h=this.video.videoHeight;
    if(c.width!==w){c.width=w;c.height=h;cc.width=w;cc.height=h;}
    g.drawImage(this.video,0,0,w,h);
+   cg.drawImage(c,0,0);
    const d=g.getImageData(0,0,w,h).data,gray=new Uint8Array(w*h);
    for(let i=0,p=0;i<gray.length;i++,p+=4)gray[i]=(d[p]*.299+d[p+1]*.587+d[p+2]*.114)|0;
-   let col=null;if(S.usb.colorUVC){cg.drawImage(c,0,0);col=cc;}
-   this._push({w,h,gray,temps:null,ts:Date.now(),color:!!S.usb.colorUVC,ccanvas:col});},33);}
+   this._push({w,h,gray,temps:null,ts:Date.now(),ccanvas:cc});},33);}
  async connectUSB(){if(!('usb' in navigator))throw new Error('WebUSB indisponible (Chrome Android, HTTPS).');
   await this.stop();
   const vid=parseInt(S.usb.vid,16),pid=parseInt(S.usb.pid,16);
@@ -519,14 +522,15 @@ function thermalRect(f,base,A){const fit=S.align.fit||'cover';
  return{x:base.x+(base.w-w)/2+A.ox,y:base.y+(base.h-h)/2+A.oy,w:w*A.sx,h:h*A.sy};}
 function thermalImageData(f,rgbSrc,msx){
  const{w,h}=f;if(tc.width!==w){tc.width=w;tc.height=h;}
- if(f.color&&f.ccanvas){tg.drawImage(f.ccanvas,0,0);
+ /* v7 : flux NATIF du capteur (couleurs constructeur) si disponible et option native */
+ if(f.ccanvas&&S.usb.native!==false){tg.drawImage(f.ccanvas,0,0);
   const gd=tg.getImageData(0,0,w,h).data,temps=new Float32Array(w*h);
   for(let i=0,p=0;i<temps.length;i++,p+=4)
    temps[i]=S.Tmin+((gd[p]*.299+gd[p+1]*.587+gd[p+2]*.114)/255)*(S.Tmax-S.Tmin);
   let mn,mx;
   if(S.agc==='auto'){mn=Infinity;mx=-Infinity;for(const v of temps){if(v<mn)mn=v;if(v>mx)mx=v;}}
   else{mn=S.level-S.span/2;mx=S.level+S.span/2;}
-  runtime.temps={data:temps,w,h,mn,mx,avg:temps.reduce((a,b)=>a+b,0)/temps.length};
+  runtime.temps={data:temps,w,h,mn,mx,avg:temps.reduce((a,b)=>a+b,0)/temps.length,radiometric:false};
   return{mn,mx};}
  const img=tg.createImageData(w,h),lut=LUTS[S.palette];
  let temps=f.temps,mn=S.Tmin,mx=S.Tmax;
@@ -534,7 +538,7 @@ function thermalImageData(f,rgbSrc,msx){
   for(let i=0;i<w*h;i++)temps[i]=S.Tmin+(f.gray[i]/255)*(S.Tmax-S.Tmin);}
  if(S.agc==='auto'){mn=Infinity;mx=-Infinity;for(const v of temps){if(v<mn)mn=v;if(v>mx)mx=v;}}
  else{mn=S.level-S.span/2;mx=S.level+S.span/2;}
- runtime.temps={data:temps,w,h,mn,mx,avg:temps.reduce((a,b)=>a+b,0)/temps.length};
+ runtime.temps={data:temps,w,h,mn,mx,avg:temps.reduce((a,b)=>a+b,0)/temps.length,radiometric:!!f.temps};
  let hp=null;
  if(msx>0&&rgbSrc){const c=document.createElement('canvas');c.width=w;c.height=h;
   const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(rgbSrc,0,0,w,h);
@@ -548,6 +552,32 @@ function thermalImageData(f,rgbSrc,msx){
   const fc=hp?1+hp[i]*msx*3:1;
   d[i*4]=lut[k*3]*fc;d[i*4+1]=lut[k*3+1]*fc;d[i*4+2]=lut[k*3+2]*fc;d[i*4+3]=255;}
  tg.putImageData(img,0,0);return{mn,mx};}
+/* v7 : PANNEAU CAPTEUR — cadre vert LIVE / orange SIMULATION + températures */
+function drawPanel(ctx,W,H,f){const u=U();
+ const ar=f.h/f.w;let pw=W*0.62,ph=pw*ar;
+ if(ph>H*0.5){ph=H*0.5;pw=ph/ar;}
+ const px=W-pw-10*u,py=H-ph-10*u;
+ ctx.save();
+ ctx.drawImage(tc,px,py,pw,ph);
+ const live=(runtime.thSrc||'').indexOf('DÉMO')!==0;
+ ctx.strokeStyle=live?'#22c55e':'#ffb020';ctx.lineWidth=2*u;ctx.strokeRect(px,py,pw,ph);
+ ctx.font='bold '+(11*u)+'px system-ui';ctx.fillStyle=ctx.strokeStyle;
+ ctx.fillText(live?('NF-582 LIVE '+runtime.thSrc.replace('UVC ','')):'SIMULATION (sans capteur)',px,py-6*u);
+ const T=runtime.temps;
+ if(T){ctx.fillStyle='#fff';ctx.font=(10*u)+'px system-ui';
+  const est=T.radiometric?'':' est.';
+  ctx.fillText(`Max ${fmtT(T.mx)}${est} · Min ${fmtT(T.mn)}${est}`,px,py+ph+12*u);
+  const ct=T.data[((T.h/2|0)*T.w)+(T.w/2|0)];
+  ctx.strokeStyle='#00ffe0';ctx.lineWidth=u;ctx.beginPath();
+  ctx.moveTo(px+pw/2-6*u,py+ph/2);ctx.lineTo(px+pw/2+6*u,py+ph/2);
+  ctx.moveTo(px+pw/2,py+ph/2-6*u);ctx.lineTo(px+pw/2,py+ph/2+6*u);ctx.stroke();
+  ctx.fillStyle='#00ffe0';ctx.fillText(fmtT(ct)+est,px+pw/2+8*u,py+ph/2+4*u);
+  let hi=0,lo=0;for(let i=0;i<T.data.length;i++){if(T.data[i]>T.data[hi])hi=i;if(T.data[i]<T.data[lo])lo=i;}
+  const hx=px+((hi%T.w)/T.w)*pw,hy=py+((hi/T.w|0)/T.h)*ph;
+  const lx=px+((lo%T.w)/T.w)*pw,ly=py+((lo/T.w|0)/T.h)*ph;
+  ctx.strokeStyle='#ff3b30';ctx.lineWidth=1.5*u;ctx.strokeRect(hx-5*u,hy-5*u,10*u,10*u);
+  ctx.strokeStyle='#7df9ff';ctx.strokeRect(lx-5*u,ly-5*u,10*u,10*u);}
+ ctx.restore();}
 function lidarMesh(ctx,r,depth){const st=Math.max(4,S.dotStep|0),u=U();
  ctx.save();ctx.lineWidth=Math.max(1,u*0.5);ctx.globalAlpha=S.meshAlpha;
  for(let y=0;y<depth.h-st;y+=st)for(let x=0;x<depth.w-st;x+=st){
@@ -611,7 +641,7 @@ function flashOverlay(ctx,W,H){if(Date.now()<runtime.flash){
   g.addColorStop(0,'rgba(255,0,0,0)');g.addColorStop(1,'rgba(255,0,0,.45)');
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}}
 function demoWatermark(ctx,W,H){const u=U();
- if((runtime.thSrc||'').indexOf('DÉMO')===0){ctx.save();
+ if((runtime.thSrc||'').indexOf('DÉMO')===0&&S.fusionMode!=='panel'){ctx.save();
   ctx.font='bold '+(13*u)+'px system-ui';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';
   ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC)',W/2,H-14*u);ctx.restore();}}
 function noSource(ctx,W,H){const u=U();ctx.save();ctx.textAlign='center';
@@ -633,7 +663,7 @@ function hud(ctx,W,H,span){const u=U();ctx.save();
  ctx.fillText(`Émiss ${S.emissivity}  Palette ${S.palette}  ×${view.z.toFixed(1)}`,16*u,62*u);
  ctx.fillText(new Date().toLocaleString('fr-FR'),16*u,80*u);ctx.restore();
  if(S.hist)drawHist(ctx,70*u,H-96*u,150*u,72*u);
- if(S.legend&&span){const lut=LUTS[S.palette],x=W-34*u,y0=120*u,hh=H-260*u;
+ if(S.legend&&span&&S.fusionMode!=='panel'){const lut=LUTS[S.palette],x=W-34*u,y0=120*u,hh=H-260*u;
   for(let i=0;i<hh;i++){const k=255-((i/hh)*255|0);
    ctx.fillStyle=`rgb(${lut[k*3]},${lut[k*3+1]},${lut[k*3+2]})`;ctx.fillRect(x,y0+i,18*u,1);}
   ctx.fillStyle='#fff';ctx.font=(11*u)+'px system-ui';
@@ -648,9 +678,11 @@ function renderScene(ctx,W,H,L,o={}){
    if(S.night)ctx.filter='brightness(2.1) contrast(1.15) saturate(1.1)';
    ctx.drawImage(L.rgb,rgbBase.x,rgbBase.y,rgbBase.w,rgbBase.h);ctx.restore();}
   catch(e){runtime.lastRenderErr='RGB: '+e.message;}}
- if(hasTH){try{
-   const msx=(S.fusionMode==='msx'&&hasRGB&&!L.th.color)?S.expert.detailTransfer:0;
-   span=thermalImageData(L.th,hasRGB?L.rgb:null,msx);
+ if(hasTH){
+  const msx=(S.fusionMode==='msx'&&hasRGB)?S.expert.detailTransfer:0;
+  span=thermalImageData(L.th,hasRGB?L.rgb:null,msx);
+  const panelMode=hasRGB&&S.fusionMode==='panel';
+  if(!panelMode){
    tr=thermalRect(L.th,rgbBase||{x:0,y:0,w:W,h:H},A);
    const drawT=(al,clip)=>{ctx.save();if(clip)clip();ctx.globalAlpha=al;
     if(A.mirror){ctx.translate(tr.x+tr.w,tr.y);ctx.scale(-1,1);ctx.drawImage(tc,0,0,tr.w,tr.h);}
@@ -665,8 +697,8 @@ function renderScene(ctx,W,H,L,o={}){
     case 'contour':drawT(1);isoContours(ctx,L.th,tr);break;
     case 'outline':drawT(0.8);break;}
    if(S.isoOn)isoAlarm(ctx,L.th,tr);
-   spots(ctx,L.th,tr);
-  }catch(e){runtime.lastRenderErr='TH: '+e.message;}}
+   spots(ctx,L.th,tr);}
+ }
  else if(!hasRGB&&hasD){try{depthView(ctx,W,H,L.depth);}catch(e){runtime.lastRenderErr='DEPTH: '+e.message;}}
  if(hasD&&S.meshOn){try{lidarMesh(ctx,rgbBase||tr||cover(W,H,L.depth.w,L.depth.h),L.depth);}catch(e){}}
  if(o.live){if(runtime.fx.zebra&&hasRGB){ctx.globalCompositeOperation='screen';
@@ -674,6 +706,7 @@ function renderScene(ctx,W,H,L,o={}){
   if(runtime.fx.peak&&hasRGB){ctx.globalCompositeOperation='lighten';
    ctx.drawImage(runtime.fx.peak,0,0,W,H);ctx.globalCompositeOperation='source-over';}}
  ctx.restore();
+ if(hasTH&&hasRGB&&S.fusionMode==='panel')drawPanel(ctx,W,H,L.th);
  if(!hasRGB&&!hasTH&&!hasD)noSource(ctx,W,H);
  try{if(o.live&&S.expert.grid)grid(ctx,W,H);
   if(o.live&&S.expert.horizon)horizon(ctx,W,H);
@@ -940,7 +973,7 @@ bind('photoFormat',()=>S.photo.format,v=>S.photo.format=v);
 bind('videoFps',()=>S.video.fps,v=>S.video.fps=v);
 bind('videoBitrate',()=>S.video.bitrate,v=>S.video.bitrate=v);
 bind('mic',()=>S.video.mic,v=>S.video.mic=v);
-bind('colorUVC',()=>!!S.usb.colorUVC,v=>{S.usb.colorUVC=v;if(v){S.Tmin=10;S.Tmax=60;}});
+bind('native',()=>S.usb.native!==false,v=>{S.usb.native=v;if(v){S.Tmin=10;S.Tmax=60;}});
 ['vid','pid','magic','endian','fmt'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=v));
 ['iface','epIn','hdr','scale','offset'].forEach(k=>bind(k,()=>S.usb[k],v=>S.usb[k]=+v));
 bind('uw',()=>S.usb.w,v=>S.usb.w=v);bind('uh',()=>S.usb.h,v=>S.usb.h=v);
@@ -955,13 +988,14 @@ $('#sUvc').onclick=async()=>{$('#srcDlg').close();
   await th.connectUVC(ext?.deviceId);
   if(S.mode==='cam')setMode('camth');else if(S.mode==='lidar')setMode('camthlidar');
   else{S.layers.th=true;th.setPaused(false);}
-  toast('NF-582 connecté : '+th.info);}
+  if(S.fusionMode==='msx'){S.fusionMode='panel';save();const fm=$('#fusionMode');if(fm)fm.value='panel';}
+  toast('NF-582 connecté : '+th.info+(ext?.label?' ('+ext.label+')':''));}
  catch(e){toast('UVC échec → WebUSB ou Démo. '+e.message);if(!th.running)th.startDemo();}};
 $('#sUsb').onclick=async()=>{$('#srcDlg').close();
  try{await th.connectUSB();S.layers.th=true;th.setPaused(false);toast('WebUSB OK : '+th.info);}
  catch(e){toast(e.message+' (sans capteur : 🧪 Démo)');if(!th.running)th.startDemo();}};
 $('#sDemo').onclick=()=>{$('#srcDlg').close();th.startDemo();S.layers.th=true;th.setPaused(false);
- toast('Démo active (cold spots simulés)');};
+ toast('Démo active (simulation)');};
 $('#sStop').onclick=async()=>{await th.stop();$('#srcDlg').close();toast('Capteur déconnecté');};
 $('#bPhoto').onclick=async()=>{if(runtime.processing)return;flash();
  const q=effQuality();
