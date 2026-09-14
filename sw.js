@@ -1,5 +1,6 @@
-const V='pkv6-1';
-const PRECACHE=['./','./index.html','./offline.html','./manifest.webmanifest'];
+const V='pkv9-1';
+const PRECACHE=['./','./index.html','./offline.html','./manifest.webmanifest',
+ './js/pk1.js','./js/pk2.js','./js/pk3.js'];
 const ICONS=['./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png'];
 const CDN=['cdn.jsdelivr.net','unpkg.com','huggingface.co'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(V).then(c=>
