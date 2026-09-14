@@ -12,7 +12,7 @@ class Thermal{
   const v=document.createElement('video');v.playsInline=true;v.muted=true;v.setAttribute('playsinline','');
   const st=await navigator.mediaDevices.getUserMedia({audio:false,video:{
    deviceId:deviceId?{exact:deviceId}:undefined,width:{ideal:S.usb.w},height:{ideal:S.usb.h},frameRate:{ideal:30}}});
-  v.srcObject=st;await v.play();this.video=v;this.mode='uvc';this.running=true;
+  v.srcObject=st;await v.play();this.video=v;this.mode='uvc';this.running=true;this._first=undefined;
   this.info='UVC '+(v.videoWidth||'?')+'×'+(v.videoHeight||'?');this._grabLoop();}
  _grabLoop(){const c=document.createElement('canvas'),g=c.getContext('2d',{willReadFrequently:true});
   const cc=document.createElement('canvas'),cg=cc.getContext('2d');
@@ -24,9 +24,14 @@ class Thermal{
    const d=g.getImageData(0,0,w,h).data,gray=new Uint8Array(w*h);
    for(let i=0,p=0;i<gray.length;i++,p+=4)gray[i]=(d[p]*.299+d[p+1]*.587+d[p+2]*.114)|0;
    if(this._first===undefined&&this.mode==='uvc'){this._first=false;
-    let sat=0,n=0;for(let i=0,p=0;i<gray.length;i+=37,p+=148){sat+=Math.abs(d[p]-d[p+1])+Math.abs(d[p+1]-d[p+2]);n++;}
-    this.visual=n>0&&(sat/n)>40;runtime.uvcVisual=this.visual;}
-   this._push({w,h,gray,temps:null,ts:Date.now(),ccanvas:cc});},33);}
+    let sat=0,grad=0,n=0;
+    for(let y=1;y<h-1;y+=7)for(let x=1;x<w-1;x+=7){const i=y*w+x,p=i*4;
+     sat+=Math.abs(d[p]-d[p+1])+Math.abs(d[p+1]-d[p+2]);
+     grad+=Math.abs(gray[i+1]-gray[i-1])+Math.abs(gray[i+w]-gray[i-w]);n++;}
+    if(n>0){sat/=n;grad/=n;}
+    this.visual=(grad>18)||(sat>60);
+    runtime.uvcVisual=this.visual;}
+   this._push({w:w,h:h,gray:gray,temps:null,ts:Date.now(),ccanvas:cc});},33);}
  async connectUSB(){if(!('usb' in navigator))throw new Error('WebUSB indisponible (Chrome Android, HTTPS).');
   await this.stop();
   const vid=parseInt(S.usb.vid,16),pid=parseInt(S.usb.pid,16);
@@ -284,12 +289,16 @@ function drawPanel(ctx,W,H,f){const u=U();
  const px=W-pw-10*u,py=H-ph-10*u;
  ctx.save();
  ctx.drawImage(tc,px,py,pw,ph);
- const src=runtime.thSrc||'—';
- const visu=src.indexOf('VISUEL')===0,demo=src.indexOf('DÉMO')===0;
- ctx.strokeStyle=demo?'#ffb020':visu?'#38b6ff':'#22c55e';
+ const kind=runtime.thKind||'demo';
+ const cols={radio:'#22c55e',palette:'#22c55e',visuel:'#38b6ff',demo:'#ffb020'};
+ const labs={radio:'NF-582 THERMIQUE LIVE (radiométrique)',
+  palette:'NF-582 THERMIQUE LIVE (palette)',
+  visuel:'NF-582 VISUEL — thermique : 🔌 autre cam ou 🔬',
+  demo:'SIMULATION (sans capteur)'};
+ ctx.strokeStyle=cols[kind]||'#22c55e';
  ctx.lineWidth=2*u;ctx.strokeRect(px,py,pw,ph);
  ctx.font='bold '+(11*u)+'px system-ui';ctx.fillStyle=ctx.strokeStyle;
- ctx.fillText(demo?'SIMULATION (sans capteur)':visu?'NF-582 VISUEL — thermique via 🔬':('NF-582 LIVE '+src.replace('UVC ','')),px,py-6*u);
+ ctx.fillText(labs[kind]||'',px,py-6*u);
  const T=runtime.temps;
  if(T){ctx.fillStyle='#fff';ctx.font=(10*u)+'px system-ui';
   const est=T.radiometric?'':' est.';
@@ -368,14 +377,14 @@ function flashOverlay(ctx,W,H){if(Date.now()<runtime.flash){
   g.addColorStop(0,'rgba(255,0,0,0)');g.addColorStop(1,'rgba(255,0,0,.45)');
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}}
 function demoWatermark(ctx,W,H){const u=U();
- if((runtime.thSrc||'').indexOf('DÉMO')===0&&S.fusionMode!=='panel'){ctx.save();
+ if((runtime.thKind||'')==='demo'&&S.fusionMode!=='panel'){ctx.save();
   ctx.font='bold '+(13*u)+'px system-ui';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';
-  ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → UVC/🔬)',W/2,H-14*u);ctx.restore();}}
+  ctx.fillText('SIMULATION — aucun capteur connecté (🔌 → liste / 🔬)',W/2,H-14*u);ctx.restore();}}
 function noSource(ctx,W,H){const u=U();ctx.save();ctx.textAlign='center';
  ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='bold '+(15*u)+'px system-ui';
  ctx.fillText('Aucune source active',W/2,H/2-10*u);
  ctx.font=(12*u)+'px system-ui';
- ctx.fillText('🔌 → UVC / 🔬 Explorateur / 🧪 Démo',W/2,H/2+12*u);ctx.restore();}
+ ctx.fillText('🔌 → liste caméras / 🔬 Explorateur / 🧪 Démo',W/2,H/2+12*u);ctx.restore();}
 function depthView(ctx,W,H,depth){const r=cover(W,H,depth.w,depth.h),lut=LUTS.ghost;
  const img=ctx.createImageData(depth.w,depth.h),c=document.createElement('canvas');
  c.width=depth.w;c.height=depth.h;
